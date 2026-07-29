@@ -267,36 +267,36 @@ function DashboardPage() {
               <div className="h-[260px] w-full">
                 <ClientOnly fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted" />}>
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis
-                        dataKey="name"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                        dy={10}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                      />
-                      <Tooltip
-                        cursor={{ fill: "hsl(var(--muted))" }}
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "var(--radius-md)",
-                        }}
-                        itemStyle={{ color: "hsl(var(--card-foreground))" }}
-                      />
-                      <Bar
-                        dataKey="tasks"
-                        fill="hsl(var(--primary))"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={48}
-                      />
-                    </BarChart>
+                  <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                      dy={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "var(--muted)" }}
+                      contentStyle={{
+                        backgroundColor: "var(--card)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-md)",
+                      }}
+                      itemStyle={{ color: "var(--card-foreground)" }}
+                    />
+                    <Bar
+                      dataKey="tasks"
+                      fill="var(--primary)"
+                      radius={[4, 4, 0, 0]}
+                      maxBarSize={48}
+                    />
+                  </BarChart>
                   </ResponsiveContainer>
                 </ClientOnly>
               </div>
