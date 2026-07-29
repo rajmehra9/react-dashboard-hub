@@ -113,16 +113,6 @@ export default function ActivateInvitation() {
 
         console.log("[ActivateInvitation] Calling loginRedirect with email:", invitedEmail);
 
-        localStorage.removeItem("token");
-        localStorage.removeItem("clientIp");
-        localStorage.removeItem("inviteToken");
-        localStorage.removeItem("inviteEmail");
-        localStorage.removeItem("remindToken");
-        localStorage.removeItem("remindEmail");
-        sessionStorage.removeItem("msalRedirectHandled");
-        sessionStorage.removeItem("emailLoginTriggered");
-        sessionStorage.removeItem("postLoginReturnUrl");
-
         await instance.loginRedirect({
           ...loginRequest,
           loginHint: invitedEmail,

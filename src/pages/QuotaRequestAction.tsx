@@ -108,11 +108,8 @@ export default function QuotaRequestAction() {
         email ? `Opening Microsoft sign-in for ${email}…` : "Opening Microsoft sign-in…"
       );
 
-      localStorage.removeItem("token");
-      localStorage.removeItem("clientIp");
-      sessionStorage.removeItem("msalRedirectHandled");
-      sessionStorage.removeItem("emailLoginTriggered");
       sessionStorage.setItem("postLoginReturnUrl", destination);
+      sessionStorage.removeItem("emailLoginTriggered");
       sessionStorage.setItem(SESSION_KEY, actionToken!);
 
       instance

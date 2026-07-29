@@ -19,7 +19,6 @@ type AuthContextType = {
   error?: string;
   clearError: () => void;
   resetLoginState: () => void;
-  resetAuthForReLogin: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,69 +48,10 @@ export function AuthProvider({
   const [error, setError] = useState<string | undefined>(undefined);
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const loginInProgressRef = useRef(false);
-  const { instance } = useMsal();
+  const { instance, accounts } = useMsal();
 
   const clearError = () => setError(undefined);
   const resetLoginState = () => { 
-    loginInProgressRef.current = false;
-  };
-
-  const clearMsalState = () => {
-    const removeMatchingKeys = (storage: Storage) => {
-      for (let i = storage.length - 1; i >= 0; i -= 1) {
-        const key = storage.key(i);
-        if (!key) continue;
-        const normalized = key.toLowerCase();
-        if (
-          normalized.includes('msal') ||
-          normalized.includes('azure') ||
-          normalized.includes('openid') ||
-          normalized.includes('oidc') ||
-          normalized.includes('authstate')
-        ) {
-          storage.removeItem(key);
-        }
-      }
-    };
-
-    removeMatchingKeys(sessionStorage);
-    removeMatchingKeys(localStorage);
-
-    document.cookie.split(';').forEach((cookie) => {
-      const name = cookie.split('=')[0]?.trim();
-      if (!name) return;
-      const normalized = name.toLowerCase();
-      if (
-        normalized.includes('msal') ||
-        normalized.includes('azure') ||
-        normalized.includes('openid') ||
-        normalized.includes('oidc')
-      ) {
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-      }
-    });
-  };
-
-  const clearAuthSession = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('clientIp');
-    localStorage.removeItem('inviteToken');
-    localStorage.removeItem('inviteEmail');
-    localStorage.removeItem('remindToken');
-    localStorage.removeItem('remindEmail');
-    sessionStorage.removeItem('msalRedirectHandled');
-    sessionStorage.removeItem('emailLoginTriggered');
-    sessionStorage.removeItem('postLoginReturnUrl');
-    sessionStorage.removeItem('runtimeGovernanceAction_redirected');
-    sessionStorage.removeItem('activateInvitation_processedToken');
-    clearMsalState();
-    setUser(null);
-    setCurrentUser(null);
-    setError(undefined);
-  };
-
-  const resetAuthForReLogin = () => {
-    clearAuthSession();
     loginInProgressRef.current = false;
   };
   // ── Local login ──────────────────────────────────────────────────────────────
@@ -158,35 +98,15 @@ export function AuthProvider({
       console.log('[loginWithMicrosoft] BLOCKED by loginInProgressRef');
       return;
     }
-
-    const existingSession = Boolean(localStorage.getItem('token') || user);
-    if (existingSession) {
-      const currentEmail = user?.email ? ` as ${user.email}` : '';
-      setError(`You are already signed in${currentEmail}. Please log out first and then sign in with the Microsoft account you want to use.`);
-      loginInProgressRef.current = false;
-      return;
-    }
-
     loginInProgressRef.current = true;
 
     try {
-      clearAuthSession();
-
       console.log('[loginWithMicrosoft] calling handleRedirectPromise to clear stale state');
       try {
         await instance.handleRedirectPromise();
         console.log('[loginWithMicrosoft] handleRedirectPromise done');
       } catch (e) {
         console.log('[loginWithMicrosoft] handleRedirectPromise error (ignored):', e);
-      }
-
-      try {
-        instance.setActiveAccount(null);
-        if (typeof instance.clearCache === 'function') {
-          await instance.clearCache();
-        }
-      } catch (msalCleanupError) {
-        console.warn('[loginWithMicrosoft] MSAL cleanup warning:', msalCleanupError);
       }
 
       console.log('[loginWithMicrosoft] MSAL keys at call time:',
@@ -258,7 +178,9 @@ export function AuthProvider({
 
   // ── Logout ───────────────────────────────────────────────────────────────────
   const logout = async () => {
-    clearAuthSession();
+    localStorage.removeItem('token');
+    setUser(null);
+    setCurrentUser(null);
     navigate('/login', { replace: true });
   };
 
@@ -276,6 +198,15 @@ export function AuthProvider({
       console.error('Failed to refresh user');
     }
   };
+
+  // ── Sync MSAL active account ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!msalEnabled) return;
+    const activeAccount = instance.getActiveAccount();
+    if (!activeAccount && accounts.length > 0) {
+      instance.setActiveAccount(accounts[0]);
+    }
+  }, [accounts, instance, msalEnabled]);
 
   // ── Main auth initialisation (runs once on mount) ────────────────────────────
   useEffect(() => {
@@ -509,8 +440,7 @@ export function AuthProvider({
           refreshUser: async () => {},
           error: 'Application must be accessed via HTTPS to use Microsoft login.',
           clearError,
-          resetLoginState,
-          resetAuthForReLogin
+          resetLoginState
         }}
       >
         {children}
@@ -520,7 +450,7 @@ export function AuthProvider({
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, logout, loginWithMicrosoft, /* loginWithLocal, */ refreshUser, error, clearError, resetLoginState, resetAuthForReLogin }}
+      value={{ user, loading, logout, loginWithMicrosoft, /* loginWithLocal, */ refreshUser, error, clearError, resetLoginState }}
     >
       {children}
     </AuthContext.Provider>

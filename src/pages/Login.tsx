@@ -62,7 +62,7 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const { user, loading: authLoading, loginWithMicrosoft, error, clearError, resetLoginState, resetAuthForReLogin, logout } = useAuth();
+  const { user, loading: authLoading, loginWithMicrosoft, error, clearError, resetLoginState } = useAuth();
 
   const [msLoading, setMsLoading] = useState(false);
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   // const [password, setPassword] = useState('');
-  const [, setFormErrors] = useState<LoginFormErrors>({});
+  const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [bfcacheKey, setBfcacheKey] = useState(0); // used to force remount SSO buttons on bfcache restore
     // ── Reset msLoading on bfcache restore (browser back button) ────────────────
   const { instance } = useMsal(); // add this at top of Login component
@@ -130,7 +130,7 @@ export default function Login() {
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
-        resetAuthForReLogin();
+        // ✅ THIS is the actual fix — resets the ref inside AuthProvider
         resetLoginState();
 
         setMsLoading(false);
@@ -1289,28 +1289,14 @@ hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]
                 )}
 
                 {/* Auth error banner */}
-                {!authLoading && error && (
-                  <div className="flex flex-col gap-2 p-3 rounded-lg bg-warning/10 border border-warning/50 mt-3">
-                    <div className="flex items-start gap-2">
-                      {isActivationWarning ? (
-                        <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <Info className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
-                      )}
-                      <p className="text-sm text-warning">{mapLoginError(error)}</p>
-                    </div>
-                    {error.includes('already signed in') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearError();
-                          logout();
-                        }}
-                        className="self-start text-sm font-medium text-primary underline underline-offset-4"
-                      >
-                        Sign out and continue
-                      </button>
+                {!authLoading && !user && error && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/50 mt-3">
+                    {isActivationWarning ? (
+                      <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <Info className="h-4 w-4 text-warning flex-shrink-0 mt-0.5" />
                     )}
+                    <p className="text-sm text-warning">{mapLoginError(error)}</p>
                   </div>
                 )}
               </div>

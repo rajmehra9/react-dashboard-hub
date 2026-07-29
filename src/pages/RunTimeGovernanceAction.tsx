@@ -79,13 +79,15 @@ export default function RuntimeGovernanceAction() {
 
     async function handleAction() {
       // ── Detect auth type for this manager email ───────────────────────
+      let authType = "microsoft"; // safe default
       try {
         if (email) {
           const res = await fetch(
             `${AUTH_API}/api/auth/auth-type?email=${encodeURIComponent(email)}`
           );
           if (res.ok) {
-            await res.json();
+            const data = await res.json();
+            authType = data.authType || "microsoft";
           }
         }
       } catch (err) {
@@ -113,11 +115,8 @@ export default function RuntimeGovernanceAction() {
       );
 
       // Save return URL — survives the Microsoft redirect round-trip
-      localStorage.removeItem("token");
-      localStorage.removeItem("clientIp");
-      sessionStorage.removeItem("msalRedirectHandled");
-      sessionStorage.removeItem("emailLoginTriggered");
       sessionStorage.setItem("postLoginReturnUrl", destination);
+      sessionStorage.removeItem("emailLoginTriggered");
       // Mark that we've fired redirect for this token
       sessionStorage.setItem(SESSION_KEY, actionToken!);
 
