@@ -238,11 +238,21 @@ export function AuthProvider({
         return;
       }
 
-      const redirectHandled = sessionStorage.getItem('msalRedirectHandled');
-
-      // Case A: Handle Microsoft redirect result
-      if (redirectResult && !redirectHandled) {
+      // Case A: Handle Microsoft redirect result.
+      // NOTE: MSAL's handleRedirectPromise() (called once in main.tsx) already
+      // returns non-null exactly once per redirect round-trip, so we don't need
+      // an extra `msalRedirectHandled` guard. Guarding on it caused a bug:
+      // after a successful login, if the user hit Back and picked a different
+      // Microsoft account, this branch was skipped and Case B restored the
+      // previous user's JWT from localStorage — logging them in as the wrong
+      // account.
+      if (redirectResult) {
         sessionStorage.setItem('msalRedirectHandled', 'true');
+        // Drop any stale session so we can't fall back to the previous user
+        // if the token exchange for the newly-selected account fails.
+        localStorage.removeItem('token');
+        setUser(null);
+        setCurrentUser(null);
         try {
           console.log('[AuthProvider] Case A: Handling Microsoft redirect');
 
@@ -250,6 +260,10 @@ export function AuthProvider({
             account: redirectResult.account,
             scopes: [`api://${import.meta.env.VITE_ENTRA_CLIENT_ID}/access_as_user`],
           });
+
+          // Ensure MSAL's active account matches the account that just
+          // completed the redirect (the one the user picked on this round).
+          instance.setActiveAccount(redirectResult.account);
 
           const inviteToken = localStorage.getItem('inviteToken');
           const inviteEmail = localStorage.getItem('inviteEmail');
