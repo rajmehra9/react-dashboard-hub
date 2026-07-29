@@ -132,6 +132,22 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+@utility card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px oklch(0.5 0.05 264 / 0.08);
+  }
+}
+
+@utility status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
