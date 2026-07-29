@@ -130,6 +130,7 @@ export default function Login() {
         resetLoginState();
 
         if (localStorage.getItem('token')) {
+          setMsLoading(true);
           refreshUser();
           return;
         }
