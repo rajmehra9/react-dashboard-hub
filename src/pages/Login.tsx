@@ -20,7 +20,6 @@ import {
 import { z } from 'zod';
 import { useDialog } from '@/components/ui/dialog-context';
 import prudentIcon from '../assets/images/prudent-icon.png';
-import { useMsal } from '@azure/msal-react';
 import { AlertTriangle, Info } from 'lucide-react';
 import { motion } from "framer-motion";
 // ── Centralised error messages (mirrors Runtimegovernance.utils.ts pattern) ───
@@ -62,7 +61,7 @@ export default function Login() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const { user, loading: authLoading, loginWithMicrosoft, error, clearError, resetLoginState } = useAuth();
+  const { user, loading: authLoading, loginWithMicrosoft, refreshUser, error, clearError, resetLoginState } = useAuth();
 
   const [msLoading, setMsLoading] = useState(false);
   const [logoutNotice, setLogoutNotice] = useState<string | null>(null);
@@ -79,8 +78,6 @@ export default function Login() {
   // const [password, setPassword] = useState('');
   const [formErrors, setFormErrors] = useState<LoginFormErrors>({});
   const [bfcacheKey, setBfcacheKey] = useState(0); // used to force remount SSO buttons on bfcache restore
-    // ── Reset msLoading on bfcache restore (browser back button) ────────────────
-  const { instance } = useMsal(); // add this at top of Login component
   // ── Pre-fill email from query param (email deep-link flow) ───────────────────
   useEffect(() => {
     const emailFromParams = searchParams.get('email');
@@ -130,8 +127,12 @@ export default function Login() {
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {
-        // ✅ THIS is the actual fix — resets the ref inside AuthProvider
         resetLoginState();
+
+        if (localStorage.getItem('token')) {
+          refreshUser();
+          return;
+        }
 
         setMsLoading(false);
         setBfcacheKey(k => k + 1); // force button re-render
@@ -145,14 +146,13 @@ export default function Login() {
             }
           });
 
-        instance.handleRedirectPromise().catch(() => { });
         if (error) clearError();
       }
     };
 
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [error, clearError, resetLoginState, instance]);
+  }, [error, clearError, resetLoginState, refreshUser]);
 
   // ── Form validation (Zod v4) ─────────────────────────────────────────────────
   // const validateForm = (): boolean => {
