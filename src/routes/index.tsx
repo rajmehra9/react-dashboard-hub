@@ -237,11 +237,11 @@ function DashboardPage() {
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <div className="mt-1 flex items-center text-xs">
                   {stat.trend === "up" ? (
-                    <ArrowUpRight className="mr-1 h-3 w-3 text-emerald-600" />
+                    <ArrowUpRight className="mr-1 h-3 w-3 text-success" />
                   ) : (
                     <ArrowDownRight className="mr-1 h-3 w-3 text-destructive" />
                   )}
-                  <span className={stat.trend === "up" ? "text-emerald-600" : "text-destructive"}>
+                  <span className={stat.trend === "up" ? "text-success" : "text-destructive"}>
                     {stat.change}
                   </span>
                   <span className="ml-1 text-muted-foreground">from last week</span>
