@@ -1,0 +1,720 @@
+import { useMemo, useState, useEffect, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Search,
+  Plus,
+  Scale,
+  Globe,
+  Shield,
+  RefreshCw,
+  Trash2,
+  CheckCircle2,
+  Monitor
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Header } from "@/components/layout/Header";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { lbApi, type LbItem, type ExistingLbItem, type ProvisioningLbItem } from "@/services/lbApi";
+import { useDialog } from "@/components/ui/dialog-context";
+import { useAppStore } from "@/store/appStore";
+import { LbTypeChooserDialog } from "./LbTypeChooserDialog";
+import { LoadBalancerQuotaIncreaseDialog } from "./LoadBalancerQuotaIncreaseDialog";
+import { env } from "@/lib/env";
+import { getClientIp } from "@/utils/getClientIP";
+
+type LbRow = {
+  id: string;
+  requestId: string;
+  name: string;
+  state: string;
+  statusColor: string;
+  type: string;
+  scheme: string;
+  ipType: string;
+  vpcId: string;
+  vpc: string;
+  subnets: string;
+  region: string;
+  created: string;
+  azs: string;
+  securityGroups: string;
+  dnsName: string;
+  arn: string;
+  dateCreated: string;
+};
+
+export function LoadBalancersList() {
+  const nav = useNavigate();
+  const { alert, confirm } = useDialog();
+  const user = useAppStore((s: any) => s.currentUser);
+  const MAX_LBS = user?.maxLoadBalancers ?? 1;
+  const [lbs, setLbs] = useState<LbItem[]>([]);
+  const userLoadBalancerCount = lbs.filter(
+    (lb: any) =>
+      Number(lb.user_id) === Number(user?.id) ||
+      Number(lb.userId) === Number(user?.id)
+  ).length;
+  const [loading, setLoading] = useState(true);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [showQuotaDialog, setShowQuotaDialog] = useState(false);
+  const [requestedQuota, setRequestedQuota] = useState(0);
+  const [reason, setReason] = useState("");
+  const [submitQuota, setSubmitQuota] = useState(false);
+  const [quotaError, setQuotaError] = useState("");
+  const [touched, setTouched] = useState(false);
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [provisioningAlb, setProvisioningAlb] = useState<ProvisioningLbItem | null>(null);
+  const [provisioningNlb, setProvisioningNlb] = useState<ProvisioningLbItem | null>(null);
+  const [existingLbs, setExistingLbs] = useState<ExistingLbItem[]>([]);
+  const [userOwnedLbs, setUserOwnedLbs] = useState<LbItem[]>([]);
+  const [checkingProvisioning, setCheckingProvisioning] = useState(false);
+  const [checkingExisting, setCheckingExisting] = useState(false);
+
+  const fetchLbs = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      const res = await lbApi.list();
+      console.log("LB API Response", (res as any).data);
+      setLbs((res as any).data ?? []);
+    } catch {
+      console.error("Failed to fetch load balancers");
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  const refreshUserOwnedLbs = async () => {
+    if (!user?.id) {
+      setUserOwnedLbs([]);
+      return;
+    }
+
+    try {
+      const res = await lbApi.list();
+      setUserOwnedLbs((res as any).data ?? []);
+    } catch {
+      setUserOwnedLbs([]);
+    }
+  };
+
+
+
+
+  useEffect(() => { fetchLbs(true); }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setCheckingProvisioning(true);
+    Promise.all([
+      lbApi.checkProvisioning(user.id, "application").catch(() => ({ exists: false, loadBalancer: null })),
+      lbApi.checkProvisioning(user.id, "network").catch(() => ({ exists: false, loadBalancer: null })),
+    ])
+      .then(([albRes, nlbRes]) => {
+        setProvisioningAlb(albRes.loadBalancer ?? null);
+        setProvisioningNlb(nlbRes.loadBalancer ?? null);
+      })
+      .finally(() => setCheckingProvisioning(false));
+  }, [user?.id]);
+
+  useEffect(() => {
+    const hasPendingLb = Boolean(
+      provisioningAlb || provisioningNlb || lbs.some((lb) => ["pending", "provisioning", "creating"].includes(String(lb.status || "").toLowerCase()))
+    );
+
+    if (!user?.id || !hasPendingLb) return;
+
+    const interval = window.setInterval(() => {
+      void fetchLbs(false);
+      void refreshUserOwnedLbs();
+      Promise.all([
+        lbApi.checkProvisioning(user.id, "application").catch(() => ({ exists: false, loadBalancer: null })),
+        lbApi.checkProvisioning(user.id, "network").catch(() => ({ exists: false, loadBalancer: null })),
+      ])
+        .then(([albRes, nlbRes]) => {
+          setProvisioningAlb(albRes.loadBalancer ?? null);
+          setProvisioningNlb(nlbRes.loadBalancer ?? null);
+        });
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [user?.id, provisioningAlb, provisioningNlb, lbs]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setUserOwnedLbs([]);
+      return;
+    }
+
+    let isMounted = true;
+    refreshUserOwnedLbs().catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+
+
+  useEffect(() => {
+    const region = lbs[0]?.region ?? "us-east-2";
+    if (!user?.id) return;
+    setCheckingExisting(true);
+    lbApi.checkExisting(region)
+      .then((res) => setExistingLbs(res.loadBalancers ?? []))
+      .catch(() => setExistingLbs([]))
+      .finally(() => setCheckingExisting(false));
+  }, [user?.id, lbs[0]?.region]);
+
+
+  // const handleRemove = async (id: string, name: string) => {
+  //   const confirmed = await confirm({
+  //     title: `Delete load balancer "${name}"?`,
+  //     description: "This will remove it from AWS immediately.",
+  //     icon: "destroy",
+  //   });
+  //   if (!confirmed) return;
+
+  //   const previousLbs = lbs;
+  //   const previousUserOwnedLbs = userOwnedLbs;
+  //   setLbs((prev) => prev.filter((lb) => lb.id !== id));
+  //   setUserOwnedLbs((prev) => prev.filter((lb) => lb.id !== id));
+
+  //   try {
+  //     await lbApi.deleteSdk(id);
+  //     await fetchLbs(false);
+  //     await refreshUserOwnedLbs();
+  //     alert({ title: `Load balancer "${name}" deleted`, severity: "success" });
+  //   } catch (err: any) {
+  //     setLbs(previousLbs);
+  //     setUserOwnedLbs(previousUserOwnedLbs);
+  //     alert({
+  //       title: `Failed to delete "${name}"`,
+  //       description: err?.message ?? "Unknown error",
+  //       severity: "error",
+  //     });
+  //   }
+  // };
+
+  const handleRemove = async (id: string, name: string, requestId: string) => {
+    const confirmed = await confirm({
+      title: `Delete load balancer "${name}"?`,
+      description: "This will remove it from AWS immediately.",
+      icon: "destroy",
+    });
+    if (!confirmed) return;
+
+    useAppStore.getState().setActiveRequest(requestId, "lb-cli-terminate-service");
+    nav("/console");
+
+    try {
+      await lbApi.deleteSdk(id);
+    } catch (err: any) {
+      useAppStore.getState().setActiveRequest(null);
+      alert({
+        title: `Failed to delete "${name}"`,
+        description: err?.message ?? "Unknown error",
+        severity: "error",
+      });
+    }
+  };
+
+
+  const formatDate = (date: string | Date) =>
+    new Date(date).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  const lbStatusConfig: Record<string, { color: string }> = {
+    pending: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+    provisioning: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+    creating: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+    completed: { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    active: { color: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    failed: { color: "bg-red-500/20 text-red-400 border-red-500/30" },
+    destroying: { color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+    deleting: { color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+    terminating: { color: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+    destroyed: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+    deleted: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+    terminated: { color: "bg-gray-500/20 text-gray-400 border-gray-500/30" },
+    retrying: { color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30" },
+    retrying_terminate: { color: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
+  };
+
+  const getStatusColor = (status: string) => {
+    return lbStatusConfig[status.toLowerCase()]?.color ?? lbStatusConfig.pending.color;
+  };
+
+  const rows: LbRow[] = useMemo(() =>
+    lbs.map((lb) => ({
+      id: lb.id,
+      requestId: lb.request_id ?? "-",
+      name: lb.name,
+      state: lb.status === "active"
+        ? "Completed"
+        : lb.status.charAt(0).toUpperCase() + lb.status.slice(1),
+
+      statusColor: getStatusColor(lb.status),
+
+      type: lb.type === "application" ? "ALB" : lb.type === "network" ? "NLB" : lb.type.toUpperCase(),
+      scheme: lb.scheme,
+      ipType: lb.ip_address_type,
+      vpcId: lb.vpc_id,
+      vpc: lb.vpc_id,
+      subnets: lb.subnets.map((s) => s.subnet_id).join(", ") || "-",
+      region: lb.region,
+      azs: lb.subnets.map((s) => s.availability_zone).join(", ") || "-",
+      securityGroups: (lb.security_group_ids ?? []).join(", ") || "-",
+      dnsName: "-",
+      arn: "-",
+      dateCreated: formatDate(lb.created_at),
+      created: formatDate(lb.created_at),
+    })), [lbs]
+  );
+  const remainingQuota = Math.max(
+    0,
+    MAX_LBS - userLoadBalancerCount
+  );
+
+  const filtered = useMemo(() => {
+    const g = globalFilter.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (g && !Object.values(r).some((v) => String(v).toLowerCase().includes(g))) return false;
+      return true;
+    });
+  }, [rows, globalFilter]);
+
+  // if (isError) {
+  //   const message = error instanceof ApiError ? error.message : "Please try again later.";
+  //   return (
+  //     <div className="text-center py-10">
+  //       <h2 className="text-xl font-semibold">Unable to load load balancers</h2>
+  //       <p className="text-sm text-muted-foreground">{message}</p>
+  //       <button
+  //         onClick={() => fetchLbs()}
+  //         className="mt-4 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent/50"
+  //       >
+  //         Retry
+  //       </button>
+  //     </div>
+  //   );
+  // }
+
+  const sorted = filtered;
+  const TERMINAL_STATUSES = ["failed", "destroyed", "deleted", "terminated"];
+
+  const activeUserLbs = userOwnedLbs.filter(
+    (lb) => lb.user_id === user?.id && !TERMINAL_STATUSES.includes(lb.status)
+  );
+  const hasAlb = activeUserLbs.some((lb) => lb.type === "application");
+  const hasNlb = activeUserLbs.some((lb) => lb.type === "network");
+
+  // provisioningLb.type tells us which kind is currently mid-flight
+  const albBlocked = hasAlb || !!provisioningAlb;
+  const nlbBlocked = hasNlb || !!provisioningNlb;
+
+  const isCreateDisabled = albBlocked && nlbBlocked;
+  const createDisabledReason = isCreateDisabled
+    ? "You already have both an ALB and an NLB under your name. Delete one before creating another."
+    : null;
+
+  const allSelected = sorted.length > 0 && sorted.every((r) => selected.has(r.id));
+  const toggleAll = () => {
+    const next = new Set(selected);
+    if (allSelected) sorted.forEach((r) => next.delete(r.id));
+    else sorted.forEach((r) => next.add(r.id));
+    setSelected(next);
+  };
+  const toggleOne = (id: string) => {
+    const next = new Set(selected);
+    next.has(id) ? next.delete(id) : next.add(id);
+    setSelected(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Header
+        title="Load Balancers"
+        subtitle="Application and Network Load Balancers provisioned via Terraform"
+        showSearch={false}
+      />
+
+      <div className="space-y-4 px-6 pb-6">
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon={<Scale className="h-4 w-4 text-primary" />}
+            iconBg="bg-primary/10"
+            value={rows.filter((r) => r.state === "Completed").length}
+            label="Total LBs"
+          />
+
+          <StatCard
+            icon={<Globe className="h-4 w-4 text-cyan-400" />}
+            iconBg="bg-cyan-500/10"
+            value={rows.filter((r) => r.type === "application" || r.type === "ALB").length}
+            label="ALB"
+          />
+
+          <StatCard
+            icon={<Shield className="h-4 w-4 text-emerald-400" />}
+            iconBg="bg-emerald-500/10"
+            value={rows.filter((r) => r.type === "network" || r.type === "NLB").length}
+            label="NLB"
+          />
+
+          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <Monitor className="h-4 w-4 text-primary" />
+              </div>
+
+              <div>
+                <p className="text-2xl font-bold text-foreground leading-tight">
+                  {remainingQuota}
+                </p>
+
+                <p className="text-xs text-muted-foreground">
+                  Quota Remaining
+                </p>
+              </div>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowQuotaDialog(true)}
+            >
+              Request Increase
+            </Button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="flex items-center gap-3">
+
+          <div className="relative flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+
+            <Input
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              placeholder="Search by name, region, or request ID..."
+              className="pl-9 bg-card/50 border-border/50"
+            />
+          </div>
+
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full shrink-0"
+            onClick={() => fetchLbs()}
+          >
+            <RefreshCw size={14} />
+          </Button>
+
+          <Button
+            className="bg-primary hover:bg-primary/90 text-white gap-1.5 shrink-0"
+            title={!loading ? createDisabledReason ?? undefined : undefined}
+            tooltip={
+              !loading && createDisabledReason
+                ? createDisabledReason
+                : undefined
+            }
+            onClick={() => {
+              if (!loading && !isCreateDisabled) {
+                setChooserOpen(true);
+              }
+            }}
+            disabled={loading || isCreateDisabled}
+          >
+            <Plus size={14} />
+            Create Load Balancer
+          </Button>
+
+        </div>
+
+        {/* Table */}
+        <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur overflow-hidden">
+
+          <div className="overflow-x-auto">
+
+            <table className="w-full text-sm min-w-[1200px]">
+
+              <thead>
+                <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b border-border/50">
+
+                  {/* <th className="px-5 py-3 w-10">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={toggleAll}
+                    />
+                  </th> */}
+
+                  {[
+                    "Request ID",
+                    "LB Name",
+                    "Type",
+                    "VPC",
+                    "Region",
+                    "Created",
+                    "Status",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-5 py-3 text-left font-medium whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
+
+                  <th className="px-5 py-3 text-right font-medium">
+                    Actions
+                  </th>
+
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {sorted.length === 0 && (
+                  <tr>
+                    <td colSpan={11} className="px-5 py-16 text-center text-muted-foreground">
+                      No Load Balancers found.
+                    </td>
+                  </tr>
+                )}
+
+                {sorted.map((r) => (
+
+                  <tr
+                    key={r.id}
+                    className="border-b border-border/40 hover:bg-accent/20"
+                  >
+
+                    {/* <td className="px-5 py-4">
+                      <Checkbox
+                        checked={selected.has(r.id)}
+                        onCheckedChange={() => toggleOne(r.id)}
+                      />
+                    </td> */}
+
+                    <td className="px-5 py-4 font-mono text-muted-foreground text-xs">
+                      {r.requestId}
+                    </td>
+
+                    <td className="px-5 py-4 font-medium">
+                      <button
+                        onClick={() => nav(`/aws/load-balancers/${encodeURIComponent(r.id)}`)}
+                        className="text-primary hover:underline text-left"
+                      >
+                        {r.name}
+                      </button>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span className="inline-flex items-center rounded-full bg-orange-500 px-2.5 py-1 text-xs font-medium text-white">
+                        {r.type}
+                      </span>
+                    </td>
+
+                    {/* <td className="px-5 py-4">
+                      <span className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-400">
+                        {r.scheme}
+                      </span>
+                    </td> */}
+
+                    {/* <td className="px-5 py-4">
+                      {r.ipType}
+                    </td> */}
+
+                    <td className="px-5 py-4 font-mono text-muted-foreground">
+                      {r.vpc}
+                    </td>
+                    {/* 
+                    <td className="px-5 py-4">
+                      {r.subnets}
+                    </td> */}
+
+                    <td className="px-5 py-4">
+                      {r.region}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      {r.created}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs capitalize ${r.statusColor}`}
+                      >
+                        {/* <CheckCircle2 size={12} /> */}
+                        {r.state}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4 text-right">
+
+                      <button
+                        onClick={() => handleRemove(r.id, r.name, r.requestId)}
+                        disabled={r.state.toLowerCase() === "provisioning"}
+                        className={`p-1.5 rounded-md transition-colors ${r.state.toLowerCase() === "provisioning"
+                          ? "cursor-not-allowed opacity-50 text-muted-foreground"
+                          : "text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          }`}
+                        title={
+                          r.state.toLowerCase() === "provisioning"
+                            ? "Cannot delete while provisioning"
+                            : "Delete Load Balancer"
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+
+                  </tr>
+
+                ))}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <LbTypeChooserDialog
+        open={chooserOpen}
+        onOpenChange={setChooserOpen}
+        onSelect={(type) => {
+          setChooserOpen(false);
+          nav(`/aws/load-balancers/create/${type}`);
+        }}
+        albDisabled={albBlocked}
+        nlbDisabled={nlbBlocked}
+        albDisabledReason={
+          provisioningAlb
+            ? `"${provisioningAlb.name}" is still provisioning.`
+            : hasAlb
+              ? "You already have an Application Load Balancer."
+              : undefined
+        }
+        nlbDisabledReason={
+          provisioningNlb
+            ? `"${provisioningNlb.name}" is still provisioning.`
+            : hasNlb
+              ? "You already have a Network Load Balancer."
+              : undefined
+        }
+      />
+
+      <LoadBalancerQuotaIncreaseDialog
+        open={showQuotaDialog}
+        onOpenChange={setShowQuotaDialog}
+        currentMaxLoadBalancers={MAX_LBS}
+        usedLoadBalancers={userLoadBalancerCount}
+        requestedquota={requestedQuota}
+        setrequestedquota={setRequestedQuota}
+        reason={reason}
+        setreason={setReason}
+        submitquota={submitQuota}
+        quotaError={quotaError}
+        setQuotaError={setQuotaError}
+        touched={touched}
+        setTouched={setTouched}
+        isMAxREached={false}
+        onSubmit={async (approverEmail) => {
+          try {
+            setSubmitQuota(true);
+
+            const token = localStorage.getItem("token");
+
+            const response = await fetch(
+              `${env.vmRequest}/api/lb-quota/${user?.id}/request`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                  "x-client-ip": (await getClientIp()) || "",
+                },
+                body: JSON.stringify({
+                  requestedQuota: requestedQuota - MAX_LBS,
+                  reason,
+                  approverEmail,
+                }),
+              }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data?.message ||
+                data?.error ||
+                "Failed to submit LB quota request"
+              );
+            }
+
+            alert({
+              title: "Load Balancer quota request submitted successfully",
+              severity: "success",
+            });
+
+            setShowQuotaDialog(false);
+            setRequestedQuota(0);
+            setReason("");
+            setTouched(false);
+            setQuotaError("");
+
+          } catch (error: any) {
+            alert({
+              title:
+                error?.message ||
+                "Failed to submit LB quota request",
+              severity: "error",
+            });
+          } finally {
+            setSubmitQuota(false);
+          }
+        }}
+      />
+
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  iconBg,
+  value,
+  label,
+}: {
+  icon: ReactNode;
+  iconBg: string;
+  value: number | string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
+        {icon}
+      </div>
+      <div>
+        <p className="text-2xl font-bold text-foreground leading-tight">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
+      </div>
+    </div>
+  );
+}
