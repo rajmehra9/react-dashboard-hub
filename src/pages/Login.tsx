@@ -641,6 +641,15 @@ hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]
       </div>
     );
   }
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   const isActivationWarning =
     error?.includes("Account activation required");
 
