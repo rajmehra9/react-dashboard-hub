@@ -23,6 +23,7 @@ import {
   Clock,
 } from "lucide-react";
 
+import { ClientOnly } from "@/components/client-only";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
