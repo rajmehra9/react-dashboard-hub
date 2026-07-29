@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   BarChart,
   Bar,
@@ -161,12 +161,30 @@ function DashboardPage() {
               <span>ProjectDash</span>
             </Link>
             <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
-              <NavLink to="/" active>
+              <Link
+                to="/"
+                className="rounded-md bg-secondary px-3 py-2 text-foreground"
+              >
                 Dashboard
-              </NavLink>
-              <NavLink to="/projects">Projects</NavLink>
-              <NavLink to="/tasks">Tasks</NavLink>
-              <NavLink to="/team">Team</NavLink>
+              </Link>
+              <Link
+                to="/projects"
+                className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                Projects
+              </Link>
+              <Link
+                to="/tasks"
+                className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                Tasks
+              </Link>
+              <Link
+                to="/team"
+                className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                Team
+              </Link>
             </nav>
           </div>
 
@@ -369,44 +387,5 @@ function DashboardPage() {
         </Card>
       </main>
     </div>
-  );
-}
-
-function Link({
-  to,
-  children,
-  className,
-}: {
-  to: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <a href={to} className={className}>
-      {children}
-    </a>
-  );
-}
-
-function NavLink({
-  to,
-  children,
-  active,
-}: {
-  to: string;
-  children: React.ReactNode;
-  active?: boolean;
-}) {
-  return (
-    <a
-      href={to}
-      className={`rounded-md px-3 py-2 transition-colors ${
-        active
-          ? "bg-secondary text-foreground"
-          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-      }`}
-    >
-      {children}
-    </a>
   );
 }
