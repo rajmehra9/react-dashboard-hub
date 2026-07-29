@@ -25,6 +25,43 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+function normalizeEmail(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim()
+    ? value.trim().toLowerCase()
+    : undefined;
+}
+
+function getClaimEmail(claims: AuthenticationResult['idTokenClaims']): string | undefined {
+  const record = claims as Record<string, unknown> | undefined;
+  if (!record) return undefined;
+
+  return (
+    normalizeEmail(record.preferred_username) ||
+    normalizeEmail(record.email) ||
+    normalizeEmail(record.upn) ||
+    normalizeEmail(record.unique_name)
+  );
+}
+
+function getMicrosoftEmail(result: AuthenticationResult): string | undefined {
+  return normalizeEmail(result.account?.username) || getClaimEmail(result.idTokenClaims);
+}
+
+function getBackendUserEmail(userData: any): string | undefined {
+  return (
+    normalizeEmail(userData?.email) ||
+    normalizeEmail(userData?.username) ||
+    normalizeEmail(userData?.userPrincipalName) ||
+    normalizeEmail(userData?.upn) ||
+    normalizeEmail(userData?.mail)
+  );
+}
+
+function clearStoredSession() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('clientIp');
+}
+
 // function resolveDestination(role: string, savedReturnUrl?: string | null): string {
 //   if (savedReturnUrl) return savedReturnUrl;
 //   return role === 'SplunkOps.Admin' || role === 'SuperAdmin' ? '/' : '/my-vms';
@@ -101,17 +138,16 @@ export function AuthProvider({
     loginInProgressRef.current = true;
 
     try {
-      console.log('[loginWithMicrosoft] calling handleRedirectPromise to clear stale state');
-      try {
-        await instance.handleRedirectPromise();
-        console.log('[loginWithMicrosoft] handleRedirectPromise done');
-      } catch (e) {
-        console.log('[loginWithMicrosoft] handleRedirectPromise error (ignored):', e);
-      }
-
       console.log('[loginWithMicrosoft] MSAL keys at call time:',
         Object.keys(sessionStorage).filter(k => k.toLowerCase().includes('msal'))
       );
+
+      // A new SSO attempt must never be allowed to fall back to an existing app
+      // JWT. This is especially important when the user presses Back from an
+      // authenticated page and starts Microsoft login again with another account.
+      clearStoredSession();
+      setUser(null);
+      setCurrentUser(null);
 
       await instance.loginRedirect({
         ...loginRequest,
@@ -178,7 +214,7 @@ export function AuthProvider({
 
   // ── Logout ───────────────────────────────────────────────────────────────────
   const logout = async () => {
-    localStorage.removeItem('token');
+    clearStoredSession();
     setUser(null);
     setCurrentUser(null);
     navigate('/login', { replace: true });
@@ -223,16 +259,20 @@ export function AuthProvider({
             const backendUser = await getCurrentUser(storedToken);
             if (backendUser?.data?.user) {
               setUser(backendUser.data.user);
+              setCurrentUser(backendUser.data.user);
             } else {
-              localStorage.removeItem('token');
+              clearStoredSession();
               setUser(null);
+              setCurrentUser(null);
             }
           } catch {
-            localStorage.removeItem('token');
+            clearStoredSession();
             setUser(null);
+            setCurrentUser(null);
           }
         } else {
           setUser(null);
+          setCurrentUser(null);
         }
         setLoading(false);
         return;
@@ -250,20 +290,26 @@ export function AuthProvider({
         sessionStorage.setItem('msalRedirectHandled', 'true');
         // Drop any stale session so we can't fall back to the previous user
         // if the token exchange for the newly-selected account fails.
-        localStorage.removeItem('token');
+        clearStoredSession();
         setUser(null);
         setCurrentUser(null);
         try {
           console.log('[AuthProvider] Case A: Handling Microsoft redirect');
+          if (!redirectResult.account) {
+            throw new Error('Microsoft did not return an account. Please try again.');
+          }
 
-          const tokenResponse = await instance.acquireTokenSilent({
-            account: redirectResult.account,
-            scopes: [`api://${import.meta.env.VITE_ENTRA_CLIENT_ID}/access_as_user`],
-          });
-
-          // Ensure MSAL's active account matches the account that just
-          // completed the redirect (the one the user picked on this round).
+          // The redirect result is the source of truth for the account selected
+          // in the Microsoft picker. Set it active before any token lookup and
+          // prefer the access token returned by the redirect over a silent cache
+          // lookup, which avoids accidentally using a prior account's token.
           instance.setActiveAccount(redirectResult.account);
+          const selectedMicrosoftEmail = getMicrosoftEmail(redirectResult);
+
+          const accessToken = redirectResult.accessToken || (await instance.acquireTokenSilent({
+            account: redirectResult.account,
+            scopes: loginRequest.scopes,
+          })).accessToken;
 
           const inviteToken = localStorage.getItem('inviteToken');
           const inviteEmail = localStorage.getItem('inviteEmail');
@@ -276,7 +322,7 @@ export function AuthProvider({
           const activeToken = inviteToken || remindToken;
           
           if (activeToken && expectedEmail) {
-            const msEmail = redirectResult.account?.username;
+            const msEmail = selectedMicrosoftEmail;
             if (msEmail?.toLowerCase() !== expectedEmail.toLowerCase()) {
               console.error(`[AuthProvider] Wrong Microsoft account used for ${tokenType}`);
               localStorage.removeItem('inviteToken');
@@ -291,7 +337,7 @@ export function AuthProvider({
           }
 
           // Exchange with backend for session JWT — using centralized API
-          const data = await microsoftLoginApi(tokenResponse.accessToken, { 
+          const data = await microsoftLoginApi(accessToken, { 
             inviteToken: inviteToken || null, 
             remindToken: remindToken || null 
           });
@@ -317,6 +363,18 @@ export function AuthProvider({
 
             const backendUser = await getCurrentUser(data.token);
             const loggedInUser = backendUser.data.user;
+            const loggedInEmail = getBackendUserEmail(loggedInUser);
+
+            if (selectedMicrosoftEmail && loggedInEmail && selectedMicrosoftEmail !== loggedInEmail) {
+              console.error('[AuthProvider] Microsoft account mismatch after backend exchange');
+              clearStoredSession();
+              setUser(null);
+              setCurrentUser(null);
+              setError('Selected Microsoft account does not match the signed-in application user. Please try again.');
+              navigate('/login', { replace: true });
+              return;
+            }
+
             setUser(loggedInUser);
             setCurrentUser(loggedInUser);
 
@@ -341,6 +399,7 @@ export function AuthProvider({
           return;
         } catch (err: any) {
           console.error('[AuthProvider] Microsoft redirect login error:', err);
+          clearStoredSession();
           localStorage.removeItem('inviteToken');
           localStorage.removeItem('inviteEmail');
           localStorage.removeItem('remindToken');
@@ -367,7 +426,7 @@ export function AuthProvider({
               if (ip) localStorage.setItem('clientIp', ip);
             }
           } else {
-            localStorage.removeItem('token');
+            clearStoredSession();
             setUser(null);
             setCurrentUser(null);
           }
@@ -376,7 +435,7 @@ export function AuthProvider({
           setCurrentUser(null);
         }
       } catch {
-        localStorage.removeItem('token');
+        clearStoredSession();
         setUser(null);
         setCurrentUser(null);
       } finally {
