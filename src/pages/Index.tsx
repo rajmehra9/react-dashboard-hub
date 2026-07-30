@@ -356,7 +356,7 @@ const Index = () => {
 
           <div className="xl:col-span-6">
             <DashboardRecentActivity
-              activities={recentActivity}
+              activities={recentActivity as any}
             />
           </div>
         </div>

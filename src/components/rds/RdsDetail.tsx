@@ -57,7 +57,7 @@ export function RdsDetail() {
         masterUsername: cluster.master_username ?? "",
         port: instance.port ?? cluster.port ?? 5432,
         availabilityZone: instance.availability_zone ?? "—",
-        subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as string[] : [],
+        subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as unknown as string[] : [],
         certificateAuthority: instance.ca_certificate_identifier ?? "",
         certificateAuthorityDate: instance.ca_certificate_expiry ?? "",
       }
