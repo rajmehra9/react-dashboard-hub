@@ -904,7 +904,7 @@ const create = async () => {
                   <Segmented
                     value={azCount}
                     options={[1, 2, 3]}
-                    onChange={setAzCount}
+                    onChange={(v) => setAzCount(Number(v))}
                   />
                 </Field>
 
@@ -950,7 +950,7 @@ const create = async () => {
                   <Segmented
                     value={publicCount}
                     options={publicOptions}
-                    onChange={setPublicCount}
+                    onChange={(v) => setPublicCount(Number(v))}
                   />
                 </Field>
 
@@ -962,7 +962,7 @@ const create = async () => {
                   <Segmented
                     value={privateCount}
                     options={privateOptions}
-                    onChange={setPrivateCount}
+                    onChange={(v) => setPrivateCount(Number(v))}
                   />
                 </Field>
 

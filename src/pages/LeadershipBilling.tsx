@@ -283,6 +283,7 @@ export default function Leadership() {
       rds: d.rds || 0,
       route53: d.route53 || 0,
       eks: d.eks || 0,
+      value: (d.ec2 || 0) + (d.vpc || 0) + (d.s3 || 0) + (d.lb || 0) + (d.rds || 0) + (d.route53 || 0) + (d.eks || 0),
     }));
 
     return { running, launches, spend, totals };
