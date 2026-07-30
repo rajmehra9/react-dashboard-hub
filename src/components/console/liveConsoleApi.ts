@@ -41,8 +41,9 @@ export interface RequestDetails {
 }
 
 export interface LogsResponse {
-  logs: string;
+  logs: string | LogEntry[];
   status: string;
+  isComplete?: boolean;
 }
 
 const normalizeStatus = (status: string) => {
