@@ -59,7 +59,7 @@ export function RdsDetail() {
         availabilityZone: instance.availability_zone ?? "—",
         subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as unknown as string[] : [],
         certificateAuthority: instance.ca_certificate_identifier ?? "",
-        certificateAuthorityDate: instance.ca_certificate_expiry ?? "",
+        certificateAuthorityDate: String(instance.ca_certificate_expiry ?? ""),
       }
     : {
         endpoint: cluster.endpoint ?? "",
