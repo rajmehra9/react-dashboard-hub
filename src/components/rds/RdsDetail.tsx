@@ -71,7 +71,7 @@ export function RdsDetail() {
         availabilityZone: primaryInstance?.availability_zone ?? "—",
         subnets: primaryInstance?.availability_zone ? [primaryInstance.availability_zone] : [],
         certificateAuthority: primaryInstance?.ca_certificate_identifier ?? "",
-        certificateAuthorityDate: cluster.created_at ?? "",
+        certificateAuthorityDate: String(cluster.created_at ?? ""),
       };
 
   const endpoints = isInstance ? [] : [
@@ -570,7 +570,7 @@ export function RdsDetail() {
                       />
                       <ConfigField
                         label="Resource ID"
-                        value={cluster.resource_id ?? "—"}
+                        value={String(cluster.resource_id ?? "—")}
                       />
                       <ConfigField
                         label="Cluster storage configuration"
@@ -771,7 +771,7 @@ export function RdsDetail() {
                       value={
                         cluster.kms_key_id ? (
                           <span className="text-primary text-xs">
-                            {cluster.kms_key_id}
+                            {String(cluster.kms_key_id)}
                           </span>
                         ) : (
                           "AWS owned KMS key"
