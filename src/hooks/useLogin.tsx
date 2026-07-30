@@ -43,8 +43,38 @@ function getClaimEmail(claims: AuthenticationResult['idTokenClaims']): string | 
   );
 }
 
+function getJwtPayload(token: string | undefined): Record<string, unknown> | undefined {
+  if (!token) return undefined;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return undefined;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+function getPayloadEmail(payload: Record<string, unknown> | undefined): string | undefined {
+  if (!payload) return undefined;
+
+  return (
+    normalizeEmail(payload.preferred_username) ||
+    normalizeEmail(payload.email) ||
+    normalizeEmail(payload.upn) ||
+    normalizeEmail(payload.unique_name)
+  );
+}
+
 function getMicrosoftEmail(result: AuthenticationResult): string | undefined {
-  return normalizeEmail(result.account?.username) || getClaimEmail(result.idTokenClaims);
+  return (
+    normalizeEmail(result.account?.username) ||
+    getClaimEmail(result.idTokenClaims) ||
+    getPayloadEmail(getJwtPayload(result.idToken)) ||
+    getPayloadEmail(getJwtPayload(result.accessToken))
+  );
 }
 
 function getBackendUserEmail(userData: any): string | undefined {
@@ -73,10 +103,14 @@ export function AuthProvider({
   children,
   msalEnabled,
   redirectResult,
+  msalRedirectResponseDetected,
+  msalRedirectError,
 }: {
   children: React.ReactNode;
   msalEnabled?: boolean;
   redirectResult?: AuthenticationResult | null;
+  msalRedirectResponseDetected?: boolean;
+  msalRedirectError?: string | null;
 }) {
   const { alert } = useDialog();
   const navigate = useNavigate();
@@ -275,6 +309,22 @@ export function AuthProvider({
           setCurrentUser(null);
         }
         setLoading(false);
+        return;
+      }
+
+      // If the browser returns from a stale Microsoft account-picker page and
+      // MSAL cannot validate/consume that response, do not restore the previous
+      // app JWT. Restoring Case B here is what made User A appear after the user
+      // selected User B from browser Back history.
+      if (msalRedirectResponseDetected && !redirectResult) {
+        clearStoredSession();
+        setUser(null);
+        setCurrentUser(null);
+        sessionStorage.removeItem('msalRedirectHandled');
+        sessionStorage.removeItem('msal.interaction.status');
+        setError(msalRedirectError || 'Microsoft sign-in could not be completed. Please sign in again.');
+        setLoading(false);
+        navigate('/login', { replace: true });
         return;
       }
 

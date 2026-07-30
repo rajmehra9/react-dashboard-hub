@@ -55,6 +55,13 @@ function getAuthenticatedDestination(searchParams: URLSearchParams): string {
   return '/providers';
 }
 
+function redirectAuthenticatedSession(searchParams: URLSearchParams): boolean {
+  if (!localStorage.getItem('token')) return false;
+
+  window.location.replace(getAuthenticatedDestination(searchParams));
+  return true;
+}
+
 // ── Zod schema (v4: safeParse result uses .issues not .errors) ─────────────────
 
 const loginSchema = z.object({
@@ -95,7 +102,7 @@ export default function Login() {
     if (!localStorage.getItem('token')) return;
 
     setMsLoading(true);
-    window.location.replace(getAuthenticatedDestination(searchParams));
+    redirectAuthenticatedSession(searchParams);
   }, [location.pathname, searchParams]);
 
   // ── Pre-fill email from query param (email deep-link flow) ───────────────────
@@ -202,9 +209,8 @@ export default function Login() {
   const handleMicrosoftLogin = async () => {
     if (msLoading) return;
 
-    if (localStorage.getItem('token')) {
+    if (redirectAuthenticatedSession(searchParams)) {
       setMsLoading(true);
-      window.location.replace(getAuthenticatedDestination(searchParams));
       return;
     }
 
