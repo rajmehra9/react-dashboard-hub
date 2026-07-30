@@ -41,7 +41,7 @@ export interface RequestDetails {
 }
 
 export interface LogsResponse {
-  logs: string | LogEntry[];
+  logs: any;
   status: string;
   isComplete?: boolean;
 }
