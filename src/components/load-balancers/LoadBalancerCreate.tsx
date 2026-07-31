@@ -381,9 +381,10 @@ export function LoadBalancerCreate({ kind }: Props) {
       setSgOptions(sgRes.securityGroups);
       setTgOptions(tgRes.targetGroups);
       if (sgs.length === 0 && sgRes.securityGroups.length > 0) {
-        const firstSg = sgRes.securityGroups[0].id;
-        setSgs([firstSg]);
-        setSelectedSgId(firstSg);
+        const defaultSg = sgRes.securityGroups.find((sg) => sg.name === DEFAULT_SG_NAME);
+        const selectedSg = defaultSg ? defaultSg.id : sgRes.securityGroups[0].id;
+        setSgs([selectedSg]);
+        setSelectedSgId(selectedSg);
       }
     }).finally(() => setLoadingVpc(false));
   }, [vpc, selectedRegion]);
@@ -1183,21 +1184,24 @@ export function LoadBalancerCreate({ kind }: Props) {
               <div className="flex flex-wrap gap-2">
                 {sgs.map((g) => {
                   const sg = sgOptions.find((o) => o.id === g);
+                  const isDefault = sg?.name === DEFAULT_SG_NAME;
                   return (
                     <span key={g} className="inline-flex items-center gap-2 px-2.5 py-1 text-xs border border-border rounded-md bg-primary/10 text-primary">
                       {sg ? `${sg.name} (${sg.id})` : g}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextSgs = sgs.filter((x) => x !== g);
-                          setSgs(nextSgs);
-                          setSelectedSgId(nextSgs[nextSgs.length - 1] ?? "");
-                        }}
-                        className="hover:text-foreground"
-                        aria-label={`Remove ${g}`}
-                      >
-                        <X size={12} />
-                      </button>
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextSgs = sgs.filter((x) => x !== g);
+                            setSgs(nextSgs);
+                            setSelectedSgId(nextSgs[nextSgs.length - 1] ?? "");
+                          }}
+                          className="hover:text-foreground"
+                          aria-label={`Remove ${g}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </span>
                   );
                 })}
