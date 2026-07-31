@@ -207,7 +207,7 @@ interface UnifiedData {
   costByRegion: Array<{ region: string; total_cost: number }>;
   costByInstanceType: Array<{ instance_type: string; total_cost: number }>;
 
-  costByService: Array<{ date: string; ec2: number; vpc: number; s3: number; lb: number; rds: number; route53: number; eks: number; total: number; }>;
+  costByService?: Array<{ date: string; ec2: number; vpc: number; s3: number; lb: number; rds: number; route53: number; eks: number; total: number; }>;
 }
 
 interface Props {

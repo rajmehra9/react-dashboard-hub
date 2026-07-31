@@ -124,14 +124,10 @@ export function AuthProvider({
   redirectResult,
   msalRedirectResponseDetected,
   msalRedirectError,
-  msalRedirectResponseDetected,
-  msalRedirectError,
 }: {
   children: React.ReactNode;
   msalEnabled?: boolean;
   redirectResult?: AuthenticationResult | null;
-  msalRedirectResponseDetected?: boolean;
-  msalRedirectError?: string | null;
   msalRedirectResponseDetected?: boolean;
   msalRedirectError?: string | null;
 }) {
@@ -340,24 +336,18 @@ export function AuthProvider({
             if (backendUser?.data?.user) {
               setUser(backendUser.data.user);
               setCurrentUser(backendUser.data.user);
-              setCurrentUser(backendUser.data.user);
             } else {
               clearStoredSession();
-              clearStoredSession();
               setUser(null);
-              setCurrentUser(null);
               setCurrentUser(null);
             }
           } catch {
             clearStoredSession();
-            clearStoredSession();
             setUser(null);
-            setCurrentUser(null);
             setCurrentUser(null);
           }
         } else {
           setUser(null);
-          setCurrentUser(null);
           setCurrentUser(null);
         }
         setLoading(false);
@@ -396,8 +386,6 @@ export function AuthProvider({
             account: redirectResult.account,
             scopes: loginRequest.scopes,
           })).accessToken;
-            scopes: loginRequest.scopes,
-          })).accessToken;
 
           const inviteToken = localStorage.getItem('inviteToken');
           const inviteEmail = localStorage.getItem('inviteEmail');
@@ -410,7 +398,6 @@ export function AuthProvider({
           const activeToken = inviteToken || remindToken;
           
           if (activeToken && expectedEmail) {
-            const msEmail = selectedMicrosoftEmail;
             const msEmail = selectedMicrosoftEmail;
             if (msEmail?.toLowerCase() !== expectedEmail.toLowerCase()) {
               console.error(`[AuthProvider] Wrong Microsoft account used for ${tokenType}`);
@@ -426,7 +413,6 @@ export function AuthProvider({
           }
 
           // Exchange with backend for session JWT — using centralized API
-          const data = await microsoftLoginApi(accessToken, { 
           const data = await microsoftLoginApi(accessToken, { 
             inviteToken: inviteToken || null, 
             remindToken: remindToken || null 
@@ -465,18 +451,6 @@ export function AuthProvider({
               return;
             }
 
-            const loggedInEmail = getBackendUserEmail(loggedInUser);
-
-            if (selectedMicrosoftEmail && loggedInEmail && selectedMicrosoftEmail !== loggedInEmail) {
-              console.error('[AuthProvider] Microsoft account mismatch after backend exchange');
-              clearStoredSession();
-              setUser(null);
-              setCurrentUser(null);
-              setError('Selected Microsoft account does not match the signed-in application user. Please try again.');
-              navigate('/login', { replace: true });
-              return;
-            }
-
             setUser(loggedInUser);
             setCurrentUser(loggedInUser);
 
@@ -501,7 +475,6 @@ export function AuthProvider({
           return;
         } catch (err: any) {
           console.error('[AuthProvider] Microsoft redirect login error:', err);
-          clearStoredSession();
           clearStoredSession();
           localStorage.removeItem('inviteToken');
           localStorage.removeItem('inviteEmail');
@@ -530,7 +503,6 @@ export function AuthProvider({
             }
           } else {
             clearStoredSession();
-            clearStoredSession();
             setUser(null);
             setCurrentUser(null);
           }
@@ -539,7 +511,6 @@ export function AuthProvider({
           setCurrentUser(null);
         }
       } catch {
-        clearStoredSession();
         clearStoredSession();
         setUser(null);
         setCurrentUser(null);
