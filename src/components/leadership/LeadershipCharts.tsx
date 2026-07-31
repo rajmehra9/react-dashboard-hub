@@ -207,7 +207,7 @@ interface UnifiedData {
   costByRegion: Array<{ region: string; total_cost: number }>;
   costByInstanceType: Array<{ instance_type: string; total_cost: number }>;
 
-  costByService: Array<{ date: string; ec2: number; vpc: number; s3: number; lb: number; rds: number; route53: number; eks: number; total: number;}>;
+  costByService: Array<{ date: string; ec2: number; vpc: number; s3: number; lb: number; rds: number; route53: number; eks: number; total: number; }>;
 }
 
 interface Props {
@@ -512,12 +512,90 @@ export const LeadershipCharts = forwardRef<HTMLDivElement, Props>(function Leade
       </div>
 
       <GlassCard className="p-5">
-        <CardHeader
-          icon={LineIcon}
-          title="Cost and usage"
-          subtitle="Daily AWS service costs"
-          iconColor="#6b8caf"
-        />
+        <div className='flex justify-between'>
+          <CardHeader
+            icon={LineIcon}
+            title="Cost and usage"
+            subtitle="AWS Services Cost"
+            iconColor="#6b8caf"
+          />
+          <div className='text-start'>
+            <div className="rounded-xl glass-panel p-4 py-2 ">
+              <div className='flex gap-10'>
+
+                <div>
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2 pr-6">
+                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500"></span>
+                      <span className="text-[11px] text-muted-foreground">EC2 </span>
+                    </div>
+                    <span className="text-[12px] font-semibold">$4.68</span>
+                  </div>
+
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-green-500"></span>
+                      <span className="text-[11px] text-muted-foreground">VPC</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$0.00</span>
+                  </div>
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-orange-500"></span>
+                      <span className="text-[11px] text-muted-foreground">S3</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$0.00</span>
+                  </div>
+
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
+                      <span className="text-[11px] text-muted-foreground">LB</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$1.36</span>
+                  </div>
+
+                </div>
+
+                <div>
+
+
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2 pr-14">
+                      <span className="h-2.5 w-2.5 rounded-full bg-purple-500"></span>
+                      <span className="text-[11px] text-muted-foreground">RDS</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$0.21</span>
+                  </div>
+
+                  <div className=" flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-cyan-400"></span>
+                      <span className="text-[11px] text-muted-foreground">Route 53</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$0.00</span>
+                  </div>
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
+                      <span className="text-[11px] text-muted-foreground">EKS</span>
+                    </div>
+                    <span className="text-[12px] font-semibold ">$6.64</span>
+                  </div>
+                </div>
+              </div>
+
+
+
+              <div className="my-1 border-t border-slate-700"></div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-muted-foreground">Total Cost</span>
+                <span className="text-base font-bold ">$12.43</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="h-[280px]">
           <ServiceCostStackedChart

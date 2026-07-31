@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AWS_REGIONS, KUBERNETES_VERSIONS } from "@/types";
+import { Input } from "../ui/input";
 
 type ConfigurationMode = "quick" | "custom";
 
@@ -375,7 +376,7 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
   label="Name"
   hint="Use the auto-generated name or enter a unique name for this cluster. This property cannot be changed after the cluster is created."
 >
-  <input
+  <Input
     value={name}
     onChange={(e) => {
       const value = e.target.value;
@@ -478,7 +479,7 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
           </Field>
         </section>
 
-        <div className="mt-6 rounded-xl border border-slate-800 bg-slate-900/40 p-6 mb-6">
+        <div className="mt-6 rounded-xl glass-panel p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="h-5 w-5 text-blue-500" />
             <h3 className="text-lg font-semibold text-white">

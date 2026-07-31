@@ -13,7 +13,8 @@ import {
   Search,
   Trash2,
   Loader2,
-  Monitor
+  Monitor,
+  ArrowUpCircle
 } from "lucide-react";
 import { useVpcList } from "@/hooks/useVpcList";
 import { useAppStore } from "@/store/appStore";
@@ -31,7 +32,7 @@ import {
 import { Info, RotateCcw } from "lucide-react";
 import { useDialog } from "@/components/ui/dialog-context";
 import { deleteVpcApi } from "@/services/vpcService";
-import { useNavigate } from "react-router-dom";import { VpcQuotaIncreaseDialog } from "@/components/vpc/VpcQuotaIncreaseDialog";
+import { useNavigate } from "react-router-dom"; import { VpcQuotaIncreaseDialog } from "@/components/vpc/VpcQuotaIncreaseDialog";
 import { env } from "@/lib/env";
 import { getClientIp } from "@/utils/getClientIP";
 
@@ -62,18 +63,21 @@ function formatCreatedDate(dateString: string | undefined | null) {
 }
 
 export default function Vpcs() {
-  const { query, setQuery, filtered, selected, allChecked, toggleAll, toggleOne, refresh, loading, clearSelection, hasPending, pendingCount } = useVpcList();
+  const { query, setQuery, filtered, selected, allChecked, toggleAll, toggleOne, refresh, loading, clearSelection, hasPending, pendingCount, allVpcs } = useVpcList();
   const currentUser = useAppStore((s) => s.currentUser);
   const navigate = useNavigate();
   const setActiveRequest = useAppStore((s) => s.setActiveRequest);
   const MAX_VPCS = currentUser?.maxVpcs ?? 1;
 
-  const userVpcCount = filtered.filter(
+  const userVpcCount = allVpcs.filter(
     (v: any) =>
       Number(v.userId) === Number(currentUser?.id) ||
       Number(v.user_id) === Number(currentUser?.id)
   ).length;
 
+  console.log("The userVPC Count", userVpcCount);
+  console.log("The pending Count", pendingCount);
+  
   const totalVpcs = userVpcCount + pendingCount;
   const hasReachedQuota = totalVpcs >= MAX_VPCS;
 
@@ -81,15 +85,15 @@ export default function Vpcs() {
     0,
     MAX_VPCS - totalVpcs
   );
-  const activeSubnets = filtered.reduce(
+  const activeSubnets = allVpcs.reduce(
     (total, v) => total + (v.subnetCount ?? 0),
     0,
   );
-  const withNat = filtered.reduce(
+  const withNat = allVpcs.reduce(
     (total, v) => total + (v.natGateways ?? 0),
     0,
   );
-  const provisioning = filtered.filter((v: any) => v.status === "provisioning").length + pendingCount;
+  const provisioning = allVpcs.filter((v: any) => v.status === "provisioning").length + pendingCount;
 
   const [dialog, setDialog] = useState<{
     icon?: "destroy" | "retry" | "info";
@@ -105,51 +109,51 @@ export default function Vpcs() {
   const [quotaError, setQuotaError] = useState("");
   const [touched, setTouched] = useState(false);
 
-// const handleDeleteRow = (vpc: any) => {
-//   setDeletingVpcId(vpc.id);
-//   setDialog({
-//     icon: "destroy",
-//     title: `Delete ${vpc.name || vpc.id}?`,
-//     onConfirm: async () => {
-//       setDeletingVpcId(vpc.id);
-//       try {
-//         await deleteVpcApi(vpc.awsVpcId);  // waits until AWS deletion is done
-//         setActiveRequest(vpc.id, "vpc-terminate-service"); 
-//         useAppStore.getState().deleteVpc(vpc.id);  // remove from store
-//         alert({ title: `VPC deleted successfully`, severity: "success" });
-//       } catch (error) {
-//         alert({ title: `Failed to delete VPC ${vpc.name || vpc.id}`, severity: "error" });
-//       } finally {
-//         setDeletingVpcId(null);  // clear deleting state
-//       }
-//     },
-//   });
-// };
+  // const handleDeleteRow = (vpc: any) => {
+  //   setDeletingVpcId(vpc.id);
+  //   setDialog({
+  //     icon: "destroy",
+  //     title: `Delete ${vpc.name || vpc.id}?`,
+  //     onConfirm: async () => {
+  //       setDeletingVpcId(vpc.id);
+  //       try {
+  //         await deleteVpcApi(vpc.awsVpcId);  // waits until AWS deletion is done
+  //         setActiveRequest(vpc.id, "vpc-terminate-service"); 
+  //         useAppStore.getState().deleteVpc(vpc.id);  // remove from store
+  //         alert({ title: `VPC deleted successfully`, severity: "success" });
+  //       } catch (error) {
+  //         alert({ title: `Failed to delete VPC ${vpc.name || vpc.id}`, severity: "error" });
+  //       } finally {
+  //         setDeletingVpcId(null);  // clear deleting state
+  //       }
+  //     },
+  //   });
+  // };
 
-const handleDeleteRow = (vpc: any) => {
-  setDialog({
-    icon: "destroy",
-    title: `Delete ${vpc.name || vpc.id}?`,
-    onConfirm: async () => {
-      setDeletingVpcId(vpc.id);
-      // ✅ Set active request BEFORE calling delete so LiveConsole starts streaming immediately
-      setActiveRequest(vpc.id, "vpc-terminate-service");
-      navigate("/console");
-      try {
-        await deleteVpcApi(vpc.awsVpcId);
-        // ✅ Remove from store only after deletion is confirmed
-        useAppStore.getState().deleteVpc(vpc.id);
-        // alert({ title: `VPC deletion submitted`, severity: "success" });
-      } catch (error) {
-        // ✅ Clear active request if delete failed
-        setActiveRequest(null);
-        alert({ title: `Failed to delete VPC ${vpc.name || vpc.id}`, severity: "error" });
-      } finally {
-        setDeletingVpcId(null);
-      }
-    },
-  });
-};
+  const handleDeleteRow = (vpc: any) => {
+    setDialog({
+      icon: "destroy",
+      title: `Delete ${vpc.name || vpc.id}?`,
+      onConfirm: async () => {
+        setDeletingVpcId(vpc.id);
+        // ✅ Set active request BEFORE calling delete so LiveConsole starts streaming immediately
+        setActiveRequest(vpc.id, "vpc-terminate-service");
+        navigate("/console");
+        try {
+          await deleteVpcApi(vpc.awsVpcId);
+          // ✅ Remove from store only after deletion is confirmed
+          useAppStore.getState().deleteVpc(vpc.id);
+          // alert({ title: `VPC deletion submitted`, severity: "success" });
+        } catch (error) {
+          // ✅ Clear active request if delete failed
+          setActiveRequest(null);
+          alert({ title: `Failed to delete VPC ${vpc.name || vpc.id}`, severity: "error" });
+        } finally {
+          setDeletingVpcId(null);
+        }
+      },
+    });
+  };
 
   const handleClose = (confirmed: boolean) => {
     if (confirmed) {
@@ -224,10 +228,12 @@ const handleDeleteRow = (vpc: any) => {
             </div>
 
             <Button
-              size="sm"
               variant="outline"
+              size="sm"
+              className="ml-auto border-primary text-primary bg-primary/10 text-xs whitespace-nowrap hover:bg-primary hover:text-white"
               onClick={() => setShowQuotaDialog(true)}
             >
+              <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
               Request Increase
             </Button>
           </div>
@@ -345,44 +351,44 @@ const handleDeleteRow = (vpc: any) => {
                             aria-label={`Select ${v.name || v.id}`}
                           />
                         </td> */}
-                      <td className="px-5 py-4 font-mono text-muted-foreground">
-                        {v.id}
-                      </td>
-                      <td className="px-5 py-4">
-                        <Link
-                          to={`/aws/vpcs/${v.id}`}
-                          className="font-mono text-primary hover:underline"
-                        >
-                          {v.name || v.id}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={statusBadgeClass}>
-                          {statusLabel}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 font-mono text-muted-foreground">
-                        {v?.cidr ?? "—"}
-                      </td>
-                      <td className="px-5 py-4 capitalize">
-                        {v?.tenancy ?? v?.meta?.tenancy ?? "default"}
-                      </td>
-                      <td className="px-5 py-4 capitalize">
-                        {getAvailabilityZonesCount(v)}
-                      </td>
-                      <td className="px-5 py-4 capitalize">
-                        {v?.subnetCount ?? v?.meta?.subnetCount ?? 0}
-                      </td>
-                      <td className="px-5 py-4 capitalize">
-                        {v?.natGateways ?? v?.meta?.natGateways ?? 0}
-                      </td>
-                      <td className="px-5 py-4">
-                        {v?.region ?? "—"}
-                      </td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        {formatCreatedDate(v?.createdDate)}
-                      </td>
-                      {/* <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 font-mono text-muted-foreground">
+                          {v.id}
+                        </td>
+                        <td className="px-5 py-4">
+                          <Link
+                            to={`/aws/vpcs/${v.id}`}
+                            className="font-mono text-primary hover:underline"
+                          >
+                            {v.name || v.id}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={statusBadgeClass}>
+                            {statusLabel}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 font-mono text-muted-foreground">
+                          {v?.cidr ?? "—"}
+                        </td>
+                        <td className="px-5 py-4 capitalize">
+                          {v?.tenancy ?? v?.meta?.tenancy ?? "default"}
+                        </td>
+                        <td className="px-5 py-4 capitalize">
+                          {getAvailabilityZonesCount(v)}
+                        </td>
+                        <td className="px-5 py-4 capitalize">
+                          {v?.subnetCount ?? v?.meta?.subnetCount ?? 0}
+                        </td>
+                        <td className="px-5 py-4 capitalize">
+                          {v?.natGateways ?? v?.meta?.natGateways ?? 0}
+                        </td>
+                        <td className="px-5 py-4">
+                          {v?.region ?? "—"}
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">
+                          {formatCreatedDate(v?.createdDate)}
+                        </td>
+                        {/* <td className="px-5 py-4 text-right">
                         <button
                           onClick={() => handleDeleteRow(v)}
                           disabled={deletingVpcId === v.id || v?.status === 'deleting'}
@@ -393,35 +399,35 @@ const handleDeleteRow = (vpc: any) => {
                         </button>
                       </td> */}
 
-                  <td className="px-5 py-4 text-right">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">
-                          <button
-                            onClick={() => handleDeleteRow(v)}
-                            disabled={deletingVpcId === v.id || v?.status === 'deleting'}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:cursor-not-allowed disabled:pointer-events-none"
-                            aria-label="Delete VPC"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">
-                        <p>
-                          {deletingVpcId === v.id || v?.status === 'deleting'
-                            ? 'Termination in progress...'
-                            : `Terminate VPC`}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </td>
+                        <td className="px-5 py-4 text-right">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex">
+                                  <button
+                                    onClick={() => handleDeleteRow(v)}
+                                    disabled={deletingVpcId === v.id || v?.status === 'deleting'}
+                                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:cursor-not-allowed disabled:pointer-events-none"
+                                    aria-label="Delete VPC"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p>
+                                  {deletingVpcId === v.id || v?.status === 'deleting'
+                                    ? 'Termination in progress...'
+                                    : `Terminate VPC`}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
 
-                    </tr>
-                  );
-                })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

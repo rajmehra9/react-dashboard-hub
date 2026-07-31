@@ -112,7 +112,7 @@ useEffect(() => {
 }, [activeService]);
 
 useEffect(() => {
-  const metadataOperation = activeService === "route53-service" &&
+  const metadataOperation = ["route53-service", "s3-service"].includes(activeService ?? "") &&
     (requestMeta?.action === "delete" || requestMeta?.last_operation === "delete" ||
       requestMeta?.last_operation === "destroy" ||
       ["terminated", "destroyed", "terminating", "destroying"].includes(requestMeta?.status ?? ""))
@@ -253,9 +253,8 @@ useEffect(() => {
         // (create.log / delete.log) instead of a single combined log with
         // "CREATE LOGS" / "DESTROY LOGS" section markers, so the marker
         // checks below only apply to services that use the combined format.
-        const usesCombinedLogFile = !["s3-service", "route53-service"].includes(
-          activeServiceRef.current ?? "",
-        );
+        const usesCombinedLogFile = activeServiceRef.current !== "route53-service" &&
+          activeServiceRef.current !== "s3-service";
         if (
           usesCombinedLogFile &&
           (targetStatus === "terminated" || targetStatus === "destroyed") &&
@@ -608,6 +607,13 @@ useEffect(() => {
       alert({
         title: `Retry Terminate Request ${requestMeta.requestId} failed`,
         severity: "error",
+      });
+    }
+
+    if (prev === "retrying_terminate" && current === "destroyed") {
+      alert({
+        title: `Request ${requestMeta.requestId} destroyed successfully`,
+        severity: "success",
       });
     }
 

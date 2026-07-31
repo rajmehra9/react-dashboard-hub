@@ -580,6 +580,10 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   BUCKET_DELETE_FAILED: "Bucket Termination Failed ",
   BUCKET_REQUEST_SUBMITTED: "Submitted Bucket Request",
   BUCKET_DESTROY_REQUESTED: "Requested Bucket Destroy",
+  BUCKET_RETRY_REQUESTED: "Retried Bucket Provision Requested",
+  BUCKET_RETRY_FAILED: "Bucket Provision Retry Failed",
+  BUCKET_RETRY_DESTROY_REQUESTED: "Retried Bucket Destroy Requested",
+  BUCKET_RETRY_DESTROY_FAILED: "Bucket Destroy Retry Failed",
 
   LOAD_BALANCER_CREATED: "Created Load Balancer",
   LOAD_BALANCER_DELETED: "Deleted Load Balancer",
@@ -609,6 +613,9 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   RDS_QUOTA_REQUEST_SUBMITTED: "RDS Quota Increase Request",
   RDS_QUOTA_REQUEST_APPROVED: "Approved RDS Quota Increase",
   RDS_QUOTA_REQUEST_REJECTED: "Rejected RDS Quota Increase",
+  RDS_RETRY_REQUESTED:  'Retried RDS Request',
+  RDS_RETRY_COMPLETED:  'RDS Retry Completed',
+  RDS_RETRY_FAILED:     'RDS Retry Failed',
 
   EKS_QUOTA_REQUEST_SUBMITTED: "EKS Quota Increase Request",
   EKS_QUOTA_REQUEST_APPROVED: "Approved EKS Quota Increase",

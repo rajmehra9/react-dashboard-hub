@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
+import { useDialog } from "@/components/ui/dialog-context";
 
 type HostedZone = {
   id: string;
@@ -21,6 +22,7 @@ const data: HostedZone[] = [
 ];
 
 export default function Route53() {
+  const { alert } = useDialog();
   const MAX_HOSTED_ZONES = 20;
   const [requestedQuota, setRequestedQuota] = useState(0);
   const [reason, setReason] = useState("");
@@ -92,6 +94,7 @@ export default function Route53() {
             variant="outline"
             size="icon"
             className="rounded-full shrink-0"
+            onClick={() => alert({ title: "Refreshed", severity: "success" })}
           >
             <RefreshCw size={14} />
           </Button>

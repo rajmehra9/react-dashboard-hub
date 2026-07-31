@@ -26,16 +26,11 @@ export function DashboardStats({
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
      <StatCard
         title="Active Resources"
-        value={totalResources}
+        value={activeResources}
         subtitle="Across all services & regions"
         icon={Server}
         variant="primary"
-        trend={{
-        value: 12,
-        display: "12%",
-        tooltip: "Compared to last week",
-        positive: true,
-      }}
+        trend={trend}
       />
        <StatCard
         title="Running Operations"

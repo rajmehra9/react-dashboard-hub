@@ -27,6 +27,7 @@ import { ROLE_LABELS } from "@/types";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
@@ -238,15 +239,24 @@ export function Sidebar() {
               )}
             </div>
             {sidebarOpen && (
-              <Button
-                variant="ghost"
-                size="icon"
-                title="Sign Out"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={logout}
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
+              <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-white"
+                        onClick={logout}
+                      >
+                        <LogOut className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+
+                    <TooltipContent side="top" align="center">
+                      <p>Sign Out</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
             )}
           </div>
         </div>

@@ -169,7 +169,7 @@ const statusColor =
            <Field
   label="Support period"
   value={
-    <span className="text-white">
+    <span className="">
       {cluster?.support_type
         ? cluster.support_type.charAt(0).toUpperCase() + cluster.support_type.slice(1).toLowerCase()
         : "—"}

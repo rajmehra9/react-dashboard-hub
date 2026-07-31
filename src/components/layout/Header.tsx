@@ -438,15 +438,14 @@ export function Header({
 
                         {/* Delete Button */}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNotification(item.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100
-                   transition text-gray-500 hover:text-white"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(item.id);
+                        }}
+                        className="opacity-0 transition-opacity duration-200 group-hover:opacity-100 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                       </div>
                     ))}
                 </div>

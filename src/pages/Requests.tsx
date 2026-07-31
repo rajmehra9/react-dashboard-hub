@@ -30,13 +30,23 @@ import {
   fetchVMRequestApi,
   fetchVpcRequestApi,
   retryVMRequestApi,
+  retryVpcRequestApi,
   retryTerminateVMRequestApi,
+  retryLbProvisionApi,
+  retryLbTerminateApi,
+  retryTerminateVpcRequestApi,
+  retryBucketProvisionApi,
   deleteVMRequestApi,
   deleteVpcRequestApi,
   deleteLbRequestApi,
   SERVICE_LABELS,
   SERVICE_OPTIONS,
   deleteRdsRequestApi,
+  // retryRdsProvisionApi,
+  // retryRdsTerminateApi,
+   RETRY_PROVISION_API,
+  RETRY_TERMINATE_API,
+
   type VMRequest as Request,
 } from "@/components/requests/vmRequestsApi";
 import { DataTable, type Column } from "@/components/common/DataTable";
@@ -70,6 +80,10 @@ const statusConfig: Record<string, { color: string; label: string }> = {
   destroyed: {
     color: "bg-gray-500/20 text-gray-400 border-gray-500/30",
     label: "Terminated",
+  },
+  "retry provisioning": {
+    color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+    label: "Retry Provisioning",
   },
   retrying: {
     color: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
@@ -123,18 +137,15 @@ export default function VMRequests() {
         search: searchQuery.trim() || undefined,
       });
 
-      const visibleData = result.data.filter(
-        (req) => !(req.service === "s3-service" && req.status === "failed")
-      );
-
-      setRequests(visibleData);
+      setRequests(result.data);
       setPagination(result.pagination);
 
-      visibleData.forEach((req) => {
+      result.data.forEach((req) => {
         if (
           req.status === "pending" ||
           req.status === "provisioning" ||
           req.status === "retrying" ||
+          req.status === "retry provisioning" ||
           req.status === "destroying" ||
           req.status === "retrying_terminate"
         ) {
@@ -271,10 +282,11 @@ export default function VMRequests() {
             req.status === "pending" ||
             req.status === "provisioning" ||
             req.status === "retrying" ||
+            req.status === "retry provisioning" ||
             req.status === "destroying" ||
             req.status === "retrying_terminate"
           ) {
-            watchRequest(req.request_id);
+            watchRequest(req.request_id, req.service);
           }
         });
       }
@@ -290,17 +302,23 @@ export default function VMRequests() {
 
   // ─── FIXED: Retry now only works for "failed" status, updates to "retrying",
   //            then redirects to the LiveConsole page ───────────────────────────
-  const retryRequest = async (requestId: string) => {
+  const retryRequest = async (requestId: string, service?: string) => {
     const confirmed = await confirm({
-      title: `Do you want to retry provisioning this VM?`,
+      title: `Do you want to retry provisioning this ${service === "vpc-service" ? "VPC" : "VM"}?`,
       icon: "retry",
     });
 
     if (!confirmed) return;
 
     try {
-      await retryVMRequestApi(requestId);
-
+   //   if (service === 'rds-service') {
+    //   await retryRdsProvisionApi(requestId);
+    // } else {
+    //   await retryVMRequestApi(requestId);
+    // }
+     const retryFn = (service ? RETRY_PROVISION_API[service] : undefined) ?? retryVMRequestApi;
+    await retryFn(requestId);
+      
       alert({
         title: "Retry Provisioning in Progress",
         severity: "loading",
@@ -309,15 +327,15 @@ export default function VMRequests() {
       // Update status to "retrying" immediately in the list
       setRequests((prev) =>
         prev.map((r) =>
-          r.request_id === requestId ? { ...r, status: "retrying" } : r,
+          r.request_id === requestId ? { ...r, status: service === "s3-service" ? "retry provisioning" : "retrying" } : r,
         ),
       );
 
       // Start polling watcher for this request
-      watchRequest(requestId);
+      watchRequest(requestId,service);
 
       // Set the active request in the store so LiveConsole picks it up
-      setActiveRequest(requestId);
+      setActiveRequest(requestId,service);
 
       // Redirect to the console page to show live logs
       navigate("/console");
@@ -331,7 +349,7 @@ export default function VMRequests() {
   };
 
 
-  const retryTerminateRequest = async (requestId: string) => {
+  const retryTerminateRequest = async (requestId: string, service?: string) => {
     const confirmed = await confirm({
       title: `Do you want to retry terminating the resources for this request?`,
       icon: "destroy",
@@ -340,25 +358,39 @@ export default function VMRequests() {
     if (!confirmed) return;
 
     try {
-      await retryTerminateVMRequestApi(requestId);
+    //   if (service === 'rds-service') {
+    //   await retryRdsTerminateApi(requestId);
+    // } else {
+    //   await retryTerminateVMRequestApi(requestId);
+    // }
 
+    const retryFn = (service ? RETRY_TERMINATE_API[service] : undefined) ?? retryTerminateVMRequestApi;
+    await retryFn(requestId);
+    
       alert({
         title: "Retry Terminate in Progress",
         severity: "loading",
       });
 
-      // Update status to "destroying" immediately in the list
+      // Update status immediately so the UI reflects the retry path
       setRequests((prev) =>
         prev.map((r) =>
-          r.request_id === requestId ? { ...r, status: "destroying", logs_cleared_at: null, last_operation: "destroy" } : r,
+          r.request_id === requestId
+            ? {
+                ...r,
+                status: "retrying_terminate",
+                logs_cleared_at: null,
+                last_operation: "destroy",
+              }
+            : r,
         ),
       );
 
       // Start polling watcher for this request
-      watchRequest(requestId);
+      watchRequest(requestId,service);
 
       // Set the active request in the store so LiveConsole picks it up
-      setActiveRequest(requestId);
+      setActiveRequest(requestId, service);
 
       // Redirect to the console page to show live logs
       navigate("/console");
@@ -472,7 +504,7 @@ export default function VMRequests() {
                 : r,
             ),
           );
-          watchRequest(requestId);
+          watchRequest(requestId,service);
         }
       }
       fetchRequests(page);
@@ -578,7 +610,12 @@ export default function VMRequests() {
       header: <span className="flex justify-end">Actions</span>,
       render: (req) => {
         const isTerminateFailed = req.status === "failed" && req.last_operation === "destroy";
-        const canRetry = req.status === "failed";
+        const MAX_RETRIES = 3;
+        const provisionRetriesExhausted = (req.provision_retry_count ?? 0) >= MAX_RETRIES;
+        const terminateRetriesExhausted = (req.terminate_retry_count ?? 0) >= MAX_RETRIES;
+        const canRetry = req.status === "failed" && (
+          isTerminateFailed ? !terminateRetriesExhausted : !provisionRetriesExhausted
+        );
         const canDestroy = req.status === "completed" || (req.status === "failed" && !isTerminateFailed);
         const logsCleared = !!req.logs_cleared_at;
         return (
@@ -593,10 +630,10 @@ export default function VMRequests() {
               disabled={logsCleared || isAwsDisconnected}
               onClick={() => {
                 if (logsCleared) return;
-                const operation = req.service === "route53-service"
+                const operation = ["route53-service", "s3-service"].includes(req.service ?? "")
                   ? ((req.action || req.last_operation || "").toLowerCase() === "delete" ||
                     (req.action || req.last_operation || "").toLowerCase() === "destroy" ||
-                    req.status === "destroyed" || req.status === "destroying"
+                    req.status === "destroyed" || req.status === "destroying" || req.status === "terminated" || req.status === "terminating"
                       ? "delete"
                       : "create")
                   : undefined;
@@ -626,8 +663,8 @@ export default function VMRequests() {
               onClick={() => {
                 if (!canRetry) return;
                 isTerminateFailed
-                  ? retryTerminateRequest(req.request_id)
-                  : retryRequest(req.request_id);
+                  ? retryTerminateRequest(req.request_id, req.service)
+                  : retryRequest(req.request_id, req.service);
               }}
               tooltip={
                 isAwsDisconnected
@@ -636,7 +673,13 @@ export default function VMRequests() {
                     ? isTerminateFailed
                       ? "Retry Terminate"
                       : "Retry Provisioning"
-                    : "Retry is only available for failed requests"
+                    : isTerminateFailed
+                      ? terminateRetriesExhausted
+                        ? "Maximum terminate retry limit (3) reached"
+                        : "Retry is only available for failed requests"
+                      : provisionRetriesExhausted
+                        ? "Maximum provision retry limit (3) reached"
+                        : "Retry is only available for failed requests"
               }
             >
               <RotateCcw className="h-4 w-4" />

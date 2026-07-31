@@ -2,6 +2,13 @@ import axios from "axios";
 import { env } from "@/lib/env";
 import { useAppStore } from "../store/appStore";
 
+function dispatchAuthLogout(reason: string) {
+  localStorage.removeItem('token');
+  localStorage.removeItem('clientIp');
+  sessionStorage.setItem('logout_reason', reason);
+  window.dispatchEvent(new Event('auth:unauthorized'));
+}
+
 let refreshPromise: Promise<string> | null = null;
 
 export async function refreshAuthToken(): Promise<string | null> {
@@ -31,8 +38,7 @@ export async function refreshAuthToken(): Promise<string | null> {
       return newToken;
     } catch (error: any) {
       console.error('[refreshAuthToken] Failed:', error.response?.data?.message || error.message);
-      // If refresh fails, remove invalid token
-      localStorage.removeItem('token');
+      dispatchAuthLogout('SESSION_EXPIRED');
       return null;
     } finally {
       refreshPromise = null;
@@ -100,18 +106,19 @@ if (!interceptorAttached) {
       // ROLE_CHANGED — logout only on non-/me endpoints (user-initiated or polling API calls)
       const isMeEndpoint = error.config?.url?.includes('/api/auth/me');
       if (error.response?.status === 401 && error.response?.data?.code === 'ROLE_CHANGED' && !isMeEndpoint) {
-        localStorage.removeItem('token');
-        sessionStorage.setItem('logout_reason', 'ROLE_CHANGED');
-        window.location.replace('/login');
+        dispatchAuthLogout('ROLE_CHANGED');
         return Promise.reject(error);
       }
 
+      const isAuthExpiredError = error.response?.status === 401 && (
+        error.response?.data?.code === 'TOKEN_EXPIRED_BUT_ACTIVE' ||
+        error.response?.data?.code === 'TOKEN_EXPIRED' ||
+        error.response?.data?.code === 'UNAUTHORIZED' ||
+        error.response?.data?.code === 'INVALID_TOKEN'
+      );
+
       // Token expired but user was active — refresh and retry
-      if (
-        error.response?.status === 401 &&
-        error.response?.data?.code === 'TOKEN_EXPIRED_BUT_ACTIVE' &&
-        !originalRequest._retry
-      ) {
+      if (isAuthExpiredError && error.response?.data?.code === 'TOKEN_EXPIRED_BUT_ACTIVE' && !originalRequest._retry) {
         originalRequest._retry = true;
         
         const newToken = await refreshAuthToken();
@@ -119,6 +126,11 @@ if (!interceptorAttached) {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           return axios(originalRequest);
         }
+      }
+
+      if (isAuthExpiredError) {
+        dispatchAuthLogout('SESSION_EXPIRED');
+        return Promise.reject(error);
       }
       
       if (

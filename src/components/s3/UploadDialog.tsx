@@ -258,7 +258,7 @@ export function UploadDialog({
             <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
               <h2 className="font-semibold">Files and folders ({files.length})</h2>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" disabled={selected.length === 0} onClick={removeSelected}>Remove</Button>
+                <Button variant="outline" size="sm" disabled={selected.length === 0 || isSubmitting} onClick={removeSelected}>Remove</Button>
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>Add files</Button>
                 <Button variant="outline" size="sm" onClick={() => folderInputRef.current?.click()}>Add folder</Button>
               </div>

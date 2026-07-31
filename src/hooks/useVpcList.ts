@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDialog } from "@/components/ui/dialog-context";
 import { useAppStore } from "@/store/appStore";
-import { fetchVpcListApi, ApiError } from "@/services/vpcService";
+import {
+  fetchVpcListApi,
+  fetchVpcDetailsApi,
+  ApiError,
+} from "@/services/vpcService";
 import { getPendingVpc, clearPendingVpc } from "@/components/vpc/pendingVpc";
 
 type Tab = "vpcs" | "encryption";
@@ -88,6 +92,50 @@ export function useVpcList() {
   }, [vpcs, currentUser?.id]);
 
   useEffect(() => {
+    const pending = getPendingVpc(currentUser?.id);
+    if (!currentUser?.id || !pending) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const details = await fetchVpcDetailsApi(pending.requestId);
+        const status = String(details?.status ?? "").toUpperCase();
+
+        // Pending localStorage should only represent an in-flight create that
+        // hasn't shown up in the list yet. Clear it once the request reaches
+        // any terminal or non-create state so quota doesn't get stuck.
+        if (
+          !cancelled &&
+          [
+            "SUCCESS",
+            "FAILED",
+            "DESTROYING",
+            "DESTROYED",
+            "RETRYING_TERMINATE",
+          ].includes(status)
+        ) {
+          clearPendingVpc(currentUser.id);
+          setPendingCount(0);
+          void loadVpcs();
+        }
+      } catch (err) {
+        // If the request no longer exists, this pending marker is stale and
+        // should not continue blocking VPC creation.
+        if (!cancelled && err instanceof ApiError && err.status === 404) {
+          clearPendingVpc(currentUser.id);
+          setPendingCount(0);
+          void loadVpcs();
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, vpcs, loadVpcs]);
+
+  useEffect(() => {
     if (!currentUser?.id || pendingCount === 0) return;
 
     const interval = window.setInterval(() => {
@@ -104,6 +152,7 @@ export function useVpcList() {
     setQuery,
     encQuery,
     setEncQuery,
+    allVpcs: vpcs,
     filtered,
     selected,
     allChecked,

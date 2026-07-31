@@ -45,6 +45,17 @@ export interface LogsResponse {
   status: string;
 }
 
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x2F;/g, "/")
+    .replace(/&#x5C;/g, "\\");
+}
+
 const normalizeStatus = (status: string) => {
   switch (status) {
     case "IN_PROGRESS":
@@ -92,6 +103,7 @@ interface ServiceEndpoints {
   base: string;
   details?: (requestId: string) => string;
   logs?: (requestId: string, operation?: string) => string;
+  download?: (requestId: string) => string;
   // "text" services return the raw log file body (e.g. piped straight from S3)
   // instead of the default `{ logs, status }` JSON envelope.
   logsFormat?: "json" | "text";
@@ -108,12 +120,8 @@ const SERVICE_ENDPOINTS: Record<string, ServiceEndpoints> = {
   },
   "s3-service": {
     base: env.bucketService,
-    // Archived operation logs are stored per-operation in S3 as
-    // `<requestId>/<operation>/<operation>.log` (see bucketS3LogService.js).
-    // `operation` defaults to "create" since that's the only operation that
-    // can be in-flight when this is polled during/after provisioning.
-    logs: (id, operation = "create") => `logs/${id}/${operation}/${operation}.log`,
-    logsFormat: "text",
+    logs: (id) => `buckets/${id}/logs`,
+    download: (id) => `buckets/${id}/logs/download`,
     live: (id) => `buckets/${id}/live-logs`,
   },
   "lb-service": {
@@ -230,11 +238,17 @@ export async function fetchRequestLogsApi(
       }
     }
 
-    const response = await apiClient.get<ApiResponse<any>>(
+    const response = await apiClient.get<any>(
       endpoints.base,
       endpoints.logs(requestId)
     );
-    return response.data;
+    // s3-service returns { requestId, logs, status } directly (not wrapped in { data })
+    const payload = response?.data ?? response;
+    const rawLogs: string = payload?.logs ?? "";
+    return {
+      logs: decodeHtmlEntities(rawLogs.replace(/\r\n/g, "\n").replace(/\r/g, "\n")),
+      status: payload?.status ?? "SUCCESS",
+    };
   }
 
   const response = await apiClient.get<ApiResponse<LogsResponse>>(

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 import { getCurrentUser } from '@/services/authService';
 import { useAppStore } from '@/store/appStore';
 import { loginRequest } from '@/auth/msalConfig';
@@ -25,6 +26,91 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+function normalizeEmail(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim()
+    ? value.trim().toLowerCase()
+    : undefined;
+}
+
+function getClaimEmail(claims: AuthenticationResult['idTokenClaims']): string | undefined {
+  const record = claims as Record<string, unknown> | undefined;
+  if (!record) return undefined;
+
+  return (
+    normalizeEmail(record.preferred_username) ||
+    normalizeEmail(record.email) ||
+    normalizeEmail(record.upn) ||
+    normalizeEmail(record.unique_name)
+  );
+}
+
+function getJwtPayload(token: string | undefined): Record<string, unknown> | undefined {
+  if (!token) return undefined;
+
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return undefined;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    return JSON.parse(decoded) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+function getPayloadEmail(payload: Record<string, unknown> | undefined): string | undefined {
+  if (!payload) return undefined;
+
+  return (
+    normalizeEmail(payload.preferred_username) ||
+    normalizeEmail(payload.email) ||
+    normalizeEmail(payload.upn) ||
+    normalizeEmail(payload.unique_name)
+  );
+}
+
+function getMicrosoftEmail(result: AuthenticationResult): string | undefined {
+  return (
+    normalizeEmail(result.account?.username) ||
+    getClaimEmail(result.idTokenClaims) ||
+    getPayloadEmail(getJwtPayload(result.idToken)) ||
+    getPayloadEmail(getJwtPayload(result.accessToken))
+  );
+}
+
+function getBackendUserEmail(userData: any): string | undefined {
+  return (
+    normalizeEmail(userData?.email) ||
+    normalizeEmail(userData?.username) ||
+    normalizeEmail(userData?.userPrincipalName) ||
+    normalizeEmail(userData?.upn) ||
+    normalizeEmail(userData?.mail)
+  );
+}
+
+function clearStoredSession() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('clientIp');
+  localStorage.removeItem('inviteToken');
+  localStorage.removeItem('inviteEmail');
+  localStorage.removeItem('remindToken');
+  localStorage.removeItem('remindEmail');
+  sessionStorage.removeItem('msalRedirectHandled');
+  sessionStorage.removeItem('activateInvitation_processedToken');
+  sessionStorage.removeItem('emailLoginTriggered');
+}
+
+function getTokenExpirationTime(token: string | null | undefined): number | null {
+  if (!token) return null;
+
+  try {
+    const payload = jwtDecode<{ exp?: number }>(token);
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 // function resolveDestination(role: string, savedReturnUrl?: string | null): string {
 //   if (savedReturnUrl) return savedReturnUrl;
 //   return role === 'SplunkOps.Admin' || role === 'SuperAdmin' ? '/' : '/my-vms';
@@ -36,10 +122,14 @@ export function AuthProvider({
   children,
   msalEnabled,
   redirectResult,
+  msalRedirectResponseDetected,
+  msalRedirectError,
 }: {
   children: React.ReactNode;
   msalEnabled?: boolean;
   redirectResult?: AuthenticationResult | null;
+  msalRedirectResponseDetected?: boolean;
+  msalRedirectError?: string | null;
 }) {
   const { alert } = useDialog();
   const navigate = useNavigate();
@@ -53,6 +143,15 @@ export function AuthProvider({
   const clearError = () => setError(undefined);
   const resetLoginState = () => { 
     loginInProgressRef.current = false;
+  };
+
+  const handleSessionExpired = (reason: string) => {
+    clearStoredSession();
+    setUser(null);
+    setCurrentUser(null);
+    sessionStorage.setItem('logout_reason', reason);
+    window.dispatchEvent(new Event('auth:unauthorized'));
+    navigate('/login', { replace: true });
   };
   // ── Local login ──────────────────────────────────────────────────────────────
   // const loginWithLocal = async (email: string, password: string): Promise<boolean> => {
@@ -101,17 +200,13 @@ export function AuthProvider({
     loginInProgressRef.current = true;
 
     try {
-      console.log('[loginWithMicrosoft] calling handleRedirectPromise to clear stale state');
-      try {
-        await instance.handleRedirectPromise();
-        console.log('[loginWithMicrosoft] handleRedirectPromise done');
-      } catch (e) {
-        console.log('[loginWithMicrosoft] handleRedirectPromise error (ignored):', e);
-      }
-
       console.log('[loginWithMicrosoft] MSAL keys at call time:',
         Object.keys(sessionStorage).filter(k => k.toLowerCase().includes('msal'))
       );
+
+      clearStoredSession();
+      setUser(null);
+      setCurrentUser(null);
 
       await instance.loginRedirect({
         ...loginRequest,
@@ -178,10 +273,7 @@ export function AuthProvider({
 
   // ── Logout ───────────────────────────────────────────────────────────────────
   const logout = async () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setCurrentUser(null);
-    navigate('/login', { replace: true });
+    handleSessionExpired('USER_LOGOUT');
   };
 
   // ── Refresh user ─────────────────────────────────────────────────────────────
@@ -208,6 +300,26 @@ export function AuthProvider({
     }
   }, [accounts, instance, msalEnabled]);
 
+  // ── Auto-logout when the stored JWT expires while the app stays open ───────
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const expirationTime = getTokenExpirationTime(token);
+    if (!expirationTime) return;
+
+    if (Date.now() >= expirationTime) {
+      handleSessionExpired('SESSION_EXPIRED');
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      handleSessionExpired('SESSION_EXPIRED');
+    }, expirationTime - Date.now());
+
+    return () => window.clearTimeout(timeoutId);
+  }, [user, navigate]);
+
   // ── Main auth initialisation (runs once on mount) ────────────────────────────
   useEffect(() => {
     async function initAuth() {
@@ -223,33 +335,57 @@ export function AuthProvider({
             const backendUser = await getCurrentUser(storedToken);
             if (backendUser?.data?.user) {
               setUser(backendUser.data.user);
+              setCurrentUser(backendUser.data.user);
             } else {
-              localStorage.removeItem('token');
+              clearStoredSession();
               setUser(null);
+              setCurrentUser(null);
             }
           } catch {
-            localStorage.removeItem('token');
+            clearStoredSession();
             setUser(null);
+            setCurrentUser(null);
           }
         } else {
           setUser(null);
+          setCurrentUser(null);
         }
         setLoading(false);
         return;
       }
 
-      const redirectHandled = sessionStorage.getItem('msalRedirectHandled');
+      if (msalRedirectResponseDetected && !redirectResult) {
+        clearStoredSession();
+        setUser(null);
+        setCurrentUser(null);
+        sessionStorage.removeItem('msalRedirectHandled');
+        sessionStorage.removeItem('msal.interaction.status');
+        sessionStorage.setItem('login_notice', 'Your previous sign-in session was cleared. Please sign in again.');
+        setError(msalRedirectError || 'Microsoft sign-in could not be completed. Please sign in again.');
+        setLoading(false);
+        navigate('/login', { replace: true });
+        return;
+      }
 
       // Case A: Handle Microsoft redirect result
-      if (redirectResult && !redirectHandled) {
+      if (redirectResult) {
         sessionStorage.setItem('msalRedirectHandled', 'true');
+        clearStoredSession();
+        setUser(null);
+        setCurrentUser(null);
         try {
           console.log('[AuthProvider] Case A: Handling Microsoft redirect');
+          if (!redirectResult.account) {
+            throw new Error('Microsoft did not return an account. Please try again.');
+          }
 
-          const tokenResponse = await instance.acquireTokenSilent({
+          instance.setActiveAccount(redirectResult.account);
+          const selectedMicrosoftEmail = getMicrosoftEmail(redirectResult);
+
+          const accessToken = redirectResult.accessToken || (await instance.acquireTokenSilent({
             account: redirectResult.account,
-            scopes: [`api://${import.meta.env.VITE_ENTRA_CLIENT_ID}/access_as_user`],
-          });
+            scopes: loginRequest.scopes,
+          })).accessToken;
 
           const inviteToken = localStorage.getItem('inviteToken');
           const inviteEmail = localStorage.getItem('inviteEmail');
@@ -262,7 +398,7 @@ export function AuthProvider({
           const activeToken = inviteToken || remindToken;
           
           if (activeToken && expectedEmail) {
-            const msEmail = redirectResult.account?.username;
+            const msEmail = selectedMicrosoftEmail;
             if (msEmail?.toLowerCase() !== expectedEmail.toLowerCase()) {
               console.error(`[AuthProvider] Wrong Microsoft account used for ${tokenType}`);
               localStorage.removeItem('inviteToken');
@@ -277,7 +413,7 @@ export function AuthProvider({
           }
 
           // Exchange with backend for session JWT — using centralized API
-          const data = await microsoftLoginApi(tokenResponse.accessToken, { 
+          const data = await microsoftLoginApi(accessToken, { 
             inviteToken: inviteToken || null, 
             remindToken: remindToken || null 
           });
@@ -303,6 +439,18 @@ export function AuthProvider({
 
             const backendUser = await getCurrentUser(data.token);
             const loggedInUser = backendUser.data.user;
+            const loggedInEmail = getBackendUserEmail(loggedInUser);
+
+            if (selectedMicrosoftEmail && loggedInEmail && selectedMicrosoftEmail !== loggedInEmail) {
+              console.error('[AuthProvider] Microsoft account mismatch after backend exchange');
+              clearStoredSession();
+              setUser(null);
+              setCurrentUser(null);
+              setError('Selected Microsoft account does not match the signed-in application user. Please try again.');
+              navigate('/login', { replace: true });
+              return;
+            }
+
             setUser(loggedInUser);
             setCurrentUser(loggedInUser);
 
@@ -327,6 +475,7 @@ export function AuthProvider({
           return;
         } catch (err: any) {
           console.error('[AuthProvider] Microsoft redirect login error:', err);
+          clearStoredSession();
           localStorage.removeItem('inviteToken');
           localStorage.removeItem('inviteEmail');
           localStorage.removeItem('remindToken');
@@ -353,7 +502,7 @@ export function AuthProvider({
               if (ip) localStorage.setItem('clientIp', ip);
             }
           } else {
-            localStorage.removeItem('token');
+            clearStoredSession();
             setUser(null);
             setCurrentUser(null);
           }
@@ -362,7 +511,7 @@ export function AuthProvider({
           setCurrentUser(null);
         }
       } catch {
-        localStorage.removeItem('token');
+        clearStoredSession();
         setUser(null);
         setCurrentUser(null);
       } finally {

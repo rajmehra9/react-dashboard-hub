@@ -12,6 +12,7 @@ import {
   Trash2,
   Info,
   RotateCcw,
+  ArrowUpCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -275,10 +276,12 @@ export function EksList() {
             </div>
 
             <Button
-              size="sm"
               variant="outline"
+              size="sm"
+              className="ml-auto border-primary text-primary bg-primary/10 text-xs whitespace-nowrap hover:bg-primary hover:text-white"
               onClick={() => setShowQuotaDialog(true)}
             >
+              <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
               Request Increase
             </Button>
           </div>

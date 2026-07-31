@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Search, Plus, RefreshCw, Trash2, Database, Server,
   Camera, Bell, Minus, CheckCircle2,
-  AlertCircle, Clock, Monitor
+  AlertCircle, Clock, Monitor, ArrowUpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/layout/Header";
@@ -18,6 +18,7 @@ import { env } from "@/lib/env";
 import { getClientIp } from "@/utils/getClientIP";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useResourceAvailability } from "@/hooks/useResourceAvailability";
+import { AuroraIcon } from "@/components/icons/aws-icons";
 
 export type RdsEngine = "Aurora MySQL" | "Aurora PostgreSQL" | "MySQL" | "PostgreSQL" | "MariaDB" | "Oracle" | "SQL Server";
 export type RdsRole = "Regional cluster" | "Writer instance" | "Reader instance" | "Standalone";
@@ -174,7 +175,6 @@ export function RdsList() {
   const hasActiveRds = available?.rds?.reached ?? false;
   console.log(hasActiveRds);
 
-
   const clusters = rows.filter((r) => r.isCluster);
   const standalones = rows.filter((r) => !r.isCluster && !r.clusterId);
   const instancesOf = (cid: string) => rows.filter((r) => r.clusterId === cid);
@@ -210,15 +210,15 @@ export function RdsList() {
         // const instanceIdentifier = row.dbIdentifier;
         // await removeInstance(row.requestId, instanceIdentifier);
       }
-  
-    setActiveRequest(row.requestId, 'rds-service');
-    nav('/console');
-    toast.success(`${row.dbIdentifier} deletion initiated`);
-    // await refresh();
-  } catch {
-    toast.error(`Failed to delete ${row.dbIdentifier}`);
-  }
-};
+
+      setActiveRequest(row.requestId, 'rds-service');
+      nav('/console');
+      toast.success(`${row.dbIdentifier} deletion initiated`);
+      // await refresh();
+    } catch {
+      toast.error(`Failed to delete ${row.dbIdentifier}`);
+    }
+  };
 
   const COLS = ["Request ID", "DB Identifier", "Status", "Role", "Engine", "Upgrade Rollout", "Region", "Size", "Created", "Actions"];
 
@@ -337,9 +337,6 @@ export function RdsList() {
 
   const quotaReached =
     userClusterCount >= MAX_RDS;
-  const snapshots = 3;
-  const recentEvents = 7;
-
   return (
     <div className="space-y-4">
       <Header
@@ -352,8 +349,7 @@ export function RdsList() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard icon={<Database className="h-4 w-4 text-primary" />} iconBg="bg-primary/10" value={dbClusters} label="DB Clusters" />
           <StatCard icon={<Server className="h-4 w-4 text-cyan-400" />} iconBg="bg-cyan-500/10" value={dbInstances} label="DB Instances" />
-          <StatCard icon={<Camera className="h-4 w-4 text-emerald-400" />} iconBg="bg-emerald-500/10" value={snapshots} label="Snapshots" />
-          <StatCard icon={<Bell className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-500/10" value={recentEvents} label="Recent Events" />
+          <StatCard icon={<AuroraIcon className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-500/10" value={17.4} label="PSQL Version" />
           <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -372,10 +368,12 @@ export function RdsList() {
             </div>
 
             <Button
-              size="sm"
               variant="outline"
+              size="sm"
+              className="ml-auto border-primary text-primary bg-primary/10 text-xs whitespace-nowrap hover:bg-primary hover:text-white"
               onClick={() => setShowQuotaDialog(true)}
             >
+              <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
               Request Increase
             </Button>
           </div>
@@ -391,7 +389,7 @@ export function RdsList() {
               className="pl-9 bg-card/50 border-border/50"
             />
           </div>
-          <Button variant="outline" size="icon" className="rounded-full shrink-0" onClick={refresh} disabled={loading}>
+          <Button variant="outline" size="icon" className="rounded-full shrink-0" onClick={async () => { await refresh(); alert({ title: "Refreshed", severity: "success" }); }} disabled={loading}>
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </Button>
           <Button

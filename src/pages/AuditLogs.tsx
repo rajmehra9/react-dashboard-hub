@@ -541,7 +541,7 @@ export default function AuditLogs() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm font-bold mb-3">
               <Database className="h-4 w-4" />
-              AWS Services <span className="text-muted-foreground text-xs font-normal">activity across your infrastructure</span>
+              AWS Services
             </div>
             <div className="flex flex-wrap gap-2">
               {getUniqueAwsServices().map(([serviceKey, config]) => {

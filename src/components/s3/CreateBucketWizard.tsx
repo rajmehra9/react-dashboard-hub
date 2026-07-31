@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AlertTriangle, FileText, GitBranch, Settings, Shield, ShieldBan, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useDialog } from "@/components/ui/dialog-context";
@@ -21,6 +21,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { checkBucketNameApi } from "@/services/bucketService";
+import { Label } from "../ui/label";
 
 export function CreateBucketWizard({ onCancel, onSubmit }: {
   onCancel: () => void;
@@ -28,6 +30,14 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
 }) {
   const { alert } = useDialog();
   const [form, setForm] = useState<BucketForm>(initialForm);
+  const [bucketNameCheckLoading, setBucketNameCheckLoading] =
+    useState(false);
+
+  const [bucketNameExists, setBucketNameExists] =
+    useState(false);
+
+  const bucketNameCheckTimer =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [justificationTouched, setJustificationTouched] = useState(false);
@@ -47,6 +57,62 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
     : isRegional
       ? regionalFullName
       : form.name;
+
+  useEffect(() => {
+    if (bucketNameCheckTimer.current) {
+      clearTimeout(bucketNameCheckTimer.current);
+    }
+
+    setBucketNameExists(false);
+
+    if (
+      isDirectory ||
+      !fullBucketName ||
+      !nameValid
+    ) {
+      setBucketNameCheckLoading(false);
+      return;
+    }
+
+    setBucketNameCheckLoading(true);
+
+    bucketNameCheckTimer.current = setTimeout(() => {
+      console.log("Bucket Check", {
+        fullBucketName,
+        region: form.region,
+      });
+      checkBucketNameApi(
+        isRegional
+          ? form.namePrefix
+          : fullBucketName,
+        form.region,
+        isRegional
+          ? "ACCOUNT_REGIONAL"
+          : "GLOBAL"
+      )
+        .then((res) => {
+          setBucketNameExists(!!res.exists);
+        })
+        .catch(() => {
+          setBucketNameExists(false);
+        })
+        .finally(() => {
+          setBucketNameCheckLoading(false);
+        });
+    }, 500);
+
+    return () => {
+      if (bucketNameCheckTimer.current) {
+        clearTimeout(bucketNameCheckTimer.current);
+      }
+    };
+  }, [
+    fullBucketName,
+    form.region,
+    isDirectory,
+    isRegional,
+    nameValid,
+  ]);
 
   const validateBucketName = (): { title: string; description: string } | null => {
     if (isDirectory) return null;
@@ -201,7 +267,7 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium block mb-1">Base name</label>
+                    <Label className="text-sm font-medium block mb-1">Base name</Label>
                     <Input
                       value={form.baseName}
                       onChange={(e) => {
@@ -238,12 +304,22 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium block mb-1">Bucket name prefix</label>
-                    <input
+                    <Input
                       value={form.namePrefix}
                       onChange={(e) => set("namePrefix", e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, "-"))}
                       placeholder="amzn-s3-demo-bucket"
                       className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm font-mono"
                     />
+                    {bucketNameCheckLoading ? (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Checking bucket prefix availability...
+                      </p>
+                    ) : bucketNameExists ? (
+                      <div className="text-xs text-red-600 mt-1">
+                        Bucket prefix already exists in this region.
+                        Choose a different prefix.
+                      </div>
+                    ) : null}
                     <p className="text-xs text-muted-foreground mt-1">
                       The bucket name prefix and the account Regional suffix combined must be between 3 and 63 characters long. The specified bucket name prefix must be unique within your account Regional namespace and follow the bucket naming rules.
                     </p>
@@ -264,12 +340,24 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
               </>
             ) : (
               <>
-                <input
+                <Input
                   value={form.name}
                   onChange={(e) => set("name", e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, "-"))}
                   placeholder="amzn-s3-demo-bucket"
-                  className="w-full bg-input/40 border border-border rounded-md px-3 py-2 text-sm font-mono"
+                  className={`w-full bg-input/40 border rounded-md px-3 py-2 text-sm font-mono ${bucketNameExists
+                    ? "border-red-500 ring-1 ring-red-200"
+                    : "border-border"
+                    }`}
                 />
+                {bucketNameCheckLoading ? (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Checking bucket availability...
+                  </p>
+                ) : bucketNameExists ? (
+                  <div className="text-xs text-red-600 mt-1">
+                    Bucket name already exists globally. Choose a different name.
+                  </div>
+                ) : null}
                 <p className="text-xs text-muted-foreground mt-1">
                   3–63 characters, unique in the global namespace. Letters, numbers, periods, hyphens.
                 </p>
@@ -489,8 +577,8 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
               onChange={() => set("bucketKey", true)}
               title="Enable"
             />
-            
-       
+
+
           </div>
         </Section>
 
@@ -530,14 +618,43 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
             size="sm"
             disabled={
               !nameValid ||
-              form.justification.trim().length < 20
+              bucketNameCheckLoading ||
+              bucketNameExists ||
+              form.justification.trim().length < 10
             }
-            onClick={() => {
+            onClick={async () => {
               const error = runValidation();
               if (error) {
                 alert({ title: error.title, description: error.description, severity: "error" });
                 return;
               }
+              if (!isDirectory) {
+                try {
+                  const res = await checkBucketNameApi(
+                    isRegional
+                      ? form.namePrefix
+                      : fullBucketName,
+                    form.region,
+                    isRegional
+                      ? "ACCOUNT_REGIONAL"
+                      : "GLOBAL"
+                  );
+
+                  if (res.exists) {
+                    alert({
+                      title: "Bucket name already exists",
+                      description:
+                        "Choose a different bucket name.",
+                      severity: "error",
+                    });
+
+                    return;
+                  }
+                } catch {
+                  // fail open
+                }
+              }
+
               setIsConfirmOpen(true);
             }}
           >

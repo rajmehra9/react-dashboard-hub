@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDialog } from "@/components/ui/dialog-context";
-import { Database, Lock, RefreshCw, Search, Trash2, History, Monitor } from "lucide-react";
+import { Database, Lock, RefreshCw, Search, Trash2, History, Monitor, ArrowUpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,7 @@ export function BucketsTable({
         <StatCard icon={<Database size={18} />} value={stats.total} label="Total Buckets" color="text-primary bg-primary/10" />
         <StatCard icon={<Lock size={18} />} value={stats.encrypted} label="Encrypted" color="text-success bg-success/10" />
         <StatCard icon={<History size={18} />} value={stats.versioned} label="Versioned" color="text-cyan-400 bg-cyan-400/10" />
-        <div className="bg-card border border-border rounded-lg p-4 flex items-center justify-between">
+        <div className="border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors rounded-lg p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <Monitor className="h-4 w-4 text-primary" />
@@ -124,10 +124,12 @@ export function BucketsTable({
           </div>
 
           <Button
-            size="sm"
             variant="outline"
+            size="sm"
+            className="ml-auto border-primary text-primary bg-primary/10 text-xs whitespace-nowrap hover:bg-primary hover:text-white"
             onClick={() => setShowQuotaDialog(true)}
           >
+            <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
             Request Increase
           </Button>
         </div>
@@ -341,7 +343,7 @@ export function BucketsTable({
 
 function StatCard({ icon, value, label, color }: { icon: React.ReactNode; value: number; label: string; color: string }) {
   return (
-    <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-3">
+    <div className="border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors rounded-lg p-4 flex items-center gap-3">
       <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>{icon}</div>
       <div>
         <div className="text-xl font-semibold">{value}</div>

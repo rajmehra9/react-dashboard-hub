@@ -9,7 +9,8 @@ import {
   RefreshCw,
   Trash2,
   CheckCircle2,
-  Monitor
+  Monitor,
+  ArrowUpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/layout/Header";
@@ -386,10 +387,12 @@ export function LoadBalancersList() {
             </div>
 
             <Button
-              size="sm"
               variant="outline"
+              size="sm"
+              className="ml-auto border-primary text-primary bg-primary/10 text-xs whitespace-nowrap hover:bg-primary hover:text-white"
               onClick={() => setShowQuotaDialog(true)}
             >
+              <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
               Request Increase
             </Button>
           </div>
@@ -416,7 +419,7 @@ export function LoadBalancersList() {
             variant="outline"
             size="icon"
             className="rounded-full shrink-0"
-            onClick={() => fetchLbs()}
+            onClick={async () => { await fetchLbs(); alert({ title: "Refreshed", severity: "success" }); }}
           >
             <RefreshCw size={14} />
           </Button>

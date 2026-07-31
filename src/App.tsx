@@ -64,6 +64,8 @@ const queryClient = new QueryClient();
 type AppProps = {
   msalEnabled?: boolean;
   redirectResult?: import("@azure/msal-browser").AuthenticationResult | null;
+  msalRedirectResponseDetected?: boolean;
+  msalRedirectError?: string | null;
 };
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, error } = useAuth();
@@ -330,7 +332,12 @@ function AppRoutes() {
   );
 }
 
-const App = ({ msalEnabled = true, redirectResult }: AppProps) => (
+const App = ({
+  msalEnabled = true,
+  redirectResult,
+  msalRedirectResponseDetected,
+  msalRedirectError,
+}: AppProps) => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <TooltipProvider>
@@ -342,6 +349,8 @@ const App = ({ msalEnabled = true, redirectResult }: AppProps) => (
               <AuthProvider
                 msalEnabled={msalEnabled}
                 redirectResult={redirectResult}
+                msalRedirectResponseDetected={msalRedirectResponseDetected}
+                msalRedirectError={msalRedirectError}
               >
                 <ErrorBoundary>
                   <AppRoutes />

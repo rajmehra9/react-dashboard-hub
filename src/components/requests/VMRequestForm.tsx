@@ -381,6 +381,12 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   const isOverQuota = totalVMs > MAX_VM_LIMIT; //5>13
 
   const effectiveVMs = requestedVMs;
+  const addVmGroupDisabled = generalGroups.length >= MAX_GENERAL_GROUPS || newVMs >= remainingQuota;
+  const addVmGroupTooltip = generalGroups.length >= MAX_GENERAL_GROUPS
+    ? `Maximum ${MAX_GENERAL_GROUPS} VM groups allowed.`
+    : remainingQuota <= 0
+      ? "No VM quota remaining."
+      : "VM quota limit reached for this request.";
 
   const defaultType = currentUser?.allowedInstanceTypes?.[0] ?? "";
 
@@ -948,7 +954,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                       value={opt.value}
                       className="py-2"
                     >
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex flex-col gap-0.5 hover:text-white">
                         <div className="flex items-center justify-between gap-3">
                           <span className="font-medium">{opt.label}</span>
                           {opt.freeTier && (
@@ -957,10 +963,10 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                             </span>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs">
                           {opt.amiId} ({opt.arch})
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs">
                           Virtualization: {opt.virtualization} · Root device:{" "}
                           {opt.rootDevice}
                         </span>
@@ -1326,30 +1332,43 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                 <p className="text-xs text-muted-foreground">
                   {generalGroups.length} / {MAX_GENERAL_GROUPS} VM groups
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setGeneralGroups((prev) =>
-                      prev.length >= MAX_GENERAL_GROUPS
-                        ? prev
-                        : [
-                            ...prev,
-                            {
-                              id: makeGroupId(),
-                              name: "",
-                              instanceType: defaultType,
-                              count: 1,
-                            },
-                          ],
-                    )
-                  }
-                  disabled={generalGroups.length >= MAX_GENERAL_GROUPS}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add VM Group
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setGeneralGroups((prev) =>
+                              prev.length >= MAX_GENERAL_GROUPS
+                                ? prev
+                                : [
+                                    ...prev,
+                                    {
+                                      id: makeGroupId(),
+                                      name: "",
+                                      instanceType: defaultType,
+                                      count: 1,
+                                    },
+                                  ],
+                            )
+                          }
+                          disabled={addVmGroupDisabled}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add VM Group
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {addVmGroupDisabled && (
+                      <TooltipContent side="top" sideOffset={8}>
+                        <p>{addVmGroupTooltip}</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           )}

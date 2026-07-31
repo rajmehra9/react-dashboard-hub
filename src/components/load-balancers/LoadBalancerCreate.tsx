@@ -11,6 +11,8 @@ import { useDialog } from "@/components/ui/dialog-context";
 import { Header } from "../layout/Header";
 import { CreateLbPayload } from "@/services/lbApi";
 import { REGIONS } from "@/utils/s3.utils";
+import albHowItWorksSvg from "@/assets/load-balancers/alb.svg?raw";
+import nlbHowItWorksSvg from "@/assets/load-balancers/nlb.svg?raw";
 import {
   Select,
   SelectContent,
@@ -23,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FileText, Info as InfoIcon, RefreshCw as RefreshIcon } from "lucide-react";
 import { lbApi, type VpcItem, type SubnetItem, type SgItem, type TgItem, type EipItem, type AzItem } from "@/services/lbApi";
 import { CreateTargetGroupPage } from "./CreateTargetGroupPage";
+import { Input } from "../ui/input";
 
 type LbKind = "ALB" | "NLB";
 type RoutingAction = "forward" | "redirect" | "fixed-response";
@@ -775,9 +778,13 @@ export function LoadBalancerCreate({ kind }: Props) {
   }
 
   return (
-    <div>
-      <Header title="Load Balancers" subtitle="" />
-      <div className="flex items-center gap-2 text-sm text-muted-foreground ml-7">
+    <div className="space-y-4">
+      <Header
+        title="Load Balancers" subtitle=""
+        showSearch={false}
+      />
+      <div className="space-y-4 p-6 pt-0">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
           to="/aws/load-balancers"
           className="text-primary hover:underline"
@@ -836,7 +843,7 @@ export function LoadBalancerCreate({ kind }: Props) {
             label="Load Balancer Name"
           >
             <p className="text-xs text-muted-foreground m-1">Name must be unique within your AWS account and can't be changed after the load balancer is created.</p>
-            <input
+            <Input
               ref={nameInputRef}
               value={name}
               onChange={(e) => {
@@ -1799,6 +1806,7 @@ export function LoadBalancerCreate({ kind }: Props) {
         </div>
       </div>
     </div>
+    </div>
   );
 }
 
@@ -1985,24 +1993,22 @@ function IntegrationCard({
 
 function AlbHowItWorks() {
   return (
-    <img
-      src="https://a.b.cdn.console.awsstatic.com/a/v1/4W7DRZLCHOQQABQG7A5U4FUW3YT6NW5XVQYTZPECJILICUXBQ5FA/2026-06-18T03-17-56_07d174ccb00f33e/Static/01030e35e897efab51b7c20523feb957.svg"
-      alt="ALB how it works"
-      className="w-full h-full object-contain"
-      width={320}
-      height={320}
+    <div
+      role="img"
+      aria-label="ALB how it works"
+      className="w-full h-full text-foreground [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+      dangerouslySetInnerHTML={{ __html: albHowItWorksSvg }}
     />
   );
 }
 
 function NlbHowItWorks() {
   return (
-    <img
-      src="https://a.b.cdn.console.awsstatic.com/a/v1/4W7DRZLCHOQQABQG7A5U4FUW3YT6NW5XVQYTZPECJILICUXBQ5FA/2026-06-18T03-17-56_07d174ccb00f33e/Static/782fe33b3ac3872a65cf305d3bf9ed42.svg"
-      alt="NLB how it works"
-      className="w-full h-full object-contain"
-      width={320}
-      height={320}
+    <div
+      role="img"
+      aria-label="NLB how it works"
+      className="w-full h-full text-foreground [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+      dangerouslySetInnerHTML={{ __html: nlbHowItWorksSvg }}
     />
   );
 }

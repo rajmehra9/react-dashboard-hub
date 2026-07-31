@@ -340,6 +340,26 @@ useEffect(() => {
     return "";
   };
 
+  const validateNameWithDuplicateCheck = (value: string, currentMode: ResourcesMode = mode) => {
+    const formatError = validateName(value);
+    if (formatError) {
+      return formatError;
+    }
+
+    const trimmed = value.trim();
+    const proposedName = currentMode === "vpc-only" ? trimmed : `${trimmed}-vpc`;
+    const regionCode = (REGION_CODE[region] ?? region).toLowerCase();
+    const duplicate = existingVpcs.some(
+      (v) => v.name.toLowerCase() === proposedName.toLowerCase() && v.region.toLowerCase() === regionCode
+    );
+
+    if (duplicate) {
+      return `A VPC with name "${proposedName}" already exists in ${region}. Names must be unique per region.`;
+    }
+
+    return "";
+  };
+
   const validateBusinessJustification = (value: string) => {
     if (value.trim().length < 20) {
       return `Minimum 20 characters required (${value.trim().length}/20).`;
@@ -350,23 +370,10 @@ useEffect(() => {
   const validateBeforeConfirm = (): boolean => {
     let valid = true;
     const currentName = mode === "vpc-only" ? name : autoName;
-    const nameValidation = validateName(currentName);
+    const nameValidation = validateNameWithDuplicateCheck(currentName, mode);
     setNameError(nameValidation);
     if (nameValidation) {
       valid = false;
-    }
-
-    // Uniqueness: VPC name must be unique within the same region (across both modes).
-    if (valid && !nameValidation) {
-      const proposedName = (mode === "vpc-only" ? name : `${autoName}-vpc`).trim().toLowerCase();
-      const regionCode = (REGION_CODE[region] ?? region).toLowerCase();
-      const dup = existingVpcs.some(
-        (v) => v.name.toLowerCase() === proposedName && v.region.toLowerCase() === regionCode
-      );
-      if (dup) {
-        setNameError(`A VPC with name "${proposedName}" already exists in ${region}. Names must be unique per region.`);
-        valid = false;
-      }
     }
 
     // Business Justification validation
@@ -462,12 +469,17 @@ const create = async () => {
     value: React.ReactNode;
     className?: string;
   }) => (
-    <div className={`rounded-lg border border-slate-800 bg-slate-900 p-4 ${className}`}>
-      <div className="text-xs text-slate-400">{label}</div>
-      <div className="mt-1 text-sm font-medium text-white break-words">
-        {value || "-"}
-      </div>
-    </div>
+    <div
+  className={`rounded-lg border border-border bg-card p-4 ${className}`}
+>
+  <div className="text-xs text-muted-foreground">
+    {label}
+  </div>
+
+  <div className="mt-1 break-words text-sm font-medium text-foreground">
+    {value || "-"}
+  </div>
+</div>
   );
 
   const selectedAzLabels = azSel
@@ -619,11 +631,17 @@ const create = async () => {
                       id="auto-generate"
                       checked={autoGen}
                       onCheckedChange={(checked) => {
-                      const enabled = checked === true;
-                      setAutoGen(enabled);
-                      setAutoName("");
-                      setNameError("");
-                    }}
+                        const enabled = checked === true;
+                        setAutoGen(enabled);
+
+                        if (enabled) {
+                          setAutoName((prev) => prev.trim() || "project");
+                        } else {
+                          setAutoName("");
+                        }
+
+                        setNameError("");
+                      }}
                     />
                     <Label
                       htmlFor="auto-generate"
@@ -640,11 +658,9 @@ const create = async () => {
                     onChange={(e) => {
                       const value = e.target.value;
                       setAutoName(value);
-                      if (nameError) {
-                        setNameError(validateName(value));
-                      }
+                      setNameError(validateNameWithDuplicateCheck(value, "vpc-and-more"));
                     }}
-                    onBlur={() => setNameError(validateName(autoName))}
+                    onBlur={() => setNameError(validateNameWithDuplicateCheck(autoName, "vpc-and-more"))}
                     className={`bg-muted/50 ${
                       nameError ? "border-red-500" : ""
                     }`}
@@ -1320,7 +1336,7 @@ const create = async () => {
       </div>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="max-w-3xl bg-slate-950 border-slate-800">
+        <DialogContent className="max-w-3xl bg-background border-border">
           <DialogHeader>
             <DialogTitle>Confirm VPC Creation</DialogTitle>
 
