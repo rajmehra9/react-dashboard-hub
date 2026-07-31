@@ -599,7 +599,7 @@ export const LeadershipCharts = forwardRef<HTMLDivElement, Props>(function Leade
 
         <div className="h-[280px]">
           <ServiceCostStackedChart
-            data={data.costByService}
+            data={data.costByService ?? []}
           />
         </div>
       </GlassCard>
