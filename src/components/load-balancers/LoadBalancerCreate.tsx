@@ -111,6 +111,7 @@ const createListener = (id: number, isAlb: boolean, port = 80): ListenerConfig =
 
 });
 const LB_NAME_REGEX = /^[a-zA-Z0-9-]+$/;
+const DEFAULT_SG_NAME = "splunk-poc-sg";
 
 function validateLbName(value: string): string | null {
   if (!value) return "Load balancer name is required.";
