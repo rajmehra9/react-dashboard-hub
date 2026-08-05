@@ -23,7 +23,9 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
-
+import { getClientIp } from "@/utils/getClientIP";
+import { useAppStore } from "@/store/appStore";
+import { env } from "@/lib/env";
 // inside the component, replace the hasActiveRecord/checkingExisting state + loadExistingCheck:
 
 type HostedZone = {
@@ -45,9 +47,6 @@ const DEFAULT_HOSTED_ZONE_ID = "e028d1bc-abef-44b4-91ae-efa139e4d2af";
 
 const ZONE_NAME = "prusplunk.com"; // matches the Header title below; swap for a route param if available
 
-
-
-
 // in handleDelete's onConfirm, replace loadExistingCheck() with:
 // refreshActiveRecord();
 function formatRecordValue(record: Route53RecordItem): string {
@@ -65,13 +64,10 @@ function formatRecordValue(record: Route53RecordItem): string {
 }
 
 export default function HostedZoneDetails() {
-  
-
- const { hasActiveRecord, checkingExisting, refresh: refreshActiveRecord } =
-  useHasActiveDnsRecord(DEFAULT_HOSTED_ZONE_ID);
 
   useEffect(() => {
     loadRecords();
+    fetchQuotaUsage();
   }, []);
 
 
@@ -102,6 +98,15 @@ export default function HostedZoneDetails() {
 
   const rows = data.filter(x => x.name.toLowerCase().includes(search.toLowerCase()));
 
+  const currentUser = useAppStore((s) => s.currentUser);
+
+  const MAX_RECORDS = currentUser?.maxDnsRecords ?? 0;
+
+  const [usedRecords, setUsedRecords] = useState(0);
+
+  const hasReachedQuota =
+    usedRecords >= MAX_RECORDS;
+
   const loadRecords = async () => {
     setLoading(true);
     setError(null);
@@ -115,10 +120,6 @@ export default function HostedZoneDetails() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadRecords();
-  }, []);
 
   const copyToClipboard = async (id: string, text: string) => {
     try {
@@ -141,7 +142,7 @@ export default function HostedZoneDetails() {
           const result = await deleteRoute53Record(record.id);
           alert({ title: "DNS record deleted", description: `"${record.record_name}" was deleted successfully.`, severity: "success" });
           setRecords(prev => prev.filter(r => r.id !== record.id));
-          refreshActiveRecord();
+          await fetchQuotaUsage();
           const requestId = result.data?.requestId;
           if (requestId) {
             const consoleSearch = new URLSearchParams({
@@ -175,7 +176,26 @@ export default function HostedZoneDetails() {
       valueOrTarget.includes(query)
     );
   });
+  const fetchQuotaUsage = async () => {
+    try {
+      const token = localStorage.getItem("token");
 
+      const response = await fetch(
+        `${env.route53Service}/quota`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      setUsedRecords(result.usedRecords || 0);
+    } catch (error) {
+      console.error(error);
+    }
+  };
   return (
     <div className="space-y-4">
       <Header
@@ -270,31 +290,39 @@ export default function HostedZoneDetails() {
             variant="outline"
             size="icon"
             className="rounded-full shrink-0"
-            onClick={loadRecords}
+            onClick={() => {
+              loadRecords();
+              fetchQuotaUsage();
+            }}
             disabled={loading}
           >
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
           </Button>
 
-          {hasActiveRecord ? (
+          {hasReachedQuota ? (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span tabIndex={0}>
-                    <Button className="bg-primary/50 text-white shrink-0 cursor-not-allowed" disabled>
+                    <Button
+                      className="bg-primary/50 text-white shrink-0 cursor-not-allowed"
+                      disabled
+                    >
                       <Plus size={14} className="mr-1.5" />
                       Create Record
                     </Button>
                   </span>
                 </TooltipTrigger>
+
                 <TooltipContent>
-                  You already have an active DNS record in this hosted zone. Delete it before creating another.
+                  DNS quota reached ({MAX_RECORDS}).
+                  Request a quota increase.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
             <Link to="/aws/createrecord">
-              <Button className="bg-primary hover:bg-primary/90 text-white shrink-0" disabled={checkingExisting}>
+              <Button className="bg-primary hover:bg-primary/90 text-white shrink-0">
                 <Plus size={14} className="mr-1.5" />
                 Create Record
               </Button>

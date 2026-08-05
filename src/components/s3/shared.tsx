@@ -139,7 +139,7 @@ export function DetailField({ label, value, mono, copy, help }: { label: string;
             className="h-auto w-auto p-0 text-muted-foreground hover:text-foreground mt-0.5 shrink-0"
           />
         )}
-        <span className={copy ? "text-primary" : ""}>{value}</span>
+        <span>{value}</span>
       </div>
     </div>
   );

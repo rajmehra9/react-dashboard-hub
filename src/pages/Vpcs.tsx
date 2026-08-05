@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useVpcList } from "@/hooks/useVpcList";
 import { useAppStore } from "@/store/appStore";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { vpcApi } from "@/components/vpc/vpcApi";
 import { VpcDetailsPanel } from "@/components/vpc/VpcDetailsPanel";
@@ -35,6 +36,7 @@ import { deleteVpcApi } from "@/services/vpcService";
 import { useNavigate } from "react-router-dom"; import { VpcQuotaIncreaseDialog } from "@/components/vpc/VpcQuotaIncreaseDialog";
 import { env } from "@/lib/env";
 import { getClientIp } from "@/utils/getClientIP";
+import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * VPCs main page. State lives in {@link useVpcList}, mutations go through
@@ -67,6 +69,8 @@ export default function Vpcs() {
   const currentUser = useAppStore((s) => s.currentUser);
   const navigate = useNavigate();
   const setActiveRequest = useAppStore((s) => s.setActiveRequest);
+  const updateVpc = useAppStore((s) => s.updateVpc);
+  const queryClient = useQueryClient();
   const MAX_VPCS = currentUser?.maxVpcs ?? 1;
 
   const userVpcCount = allVpcs.filter(
@@ -136,16 +140,19 @@ export default function Vpcs() {
       title: `Delete ${vpc.name || vpc.id}?`,
       onConfirm: async () => {
         setDeletingVpcId(vpc.id);
-        // ✅ Set active request BEFORE calling delete so LiveConsole starts streaming immediately
+        // Optimistically mark the VPC as deleting in the store immediately
+        updateVpc(vpc.id, { status: "deleting" });
+        // Set active request BEFORE calling delete so LiveConsole starts streaming immediately
         setActiveRequest(vpc.id, "vpc-terminate-service");
         navigate("/console");
         try {
           await deleteVpcApi(vpc.awsVpcId);
-          // ✅ Remove from store only after deletion is confirmed
-          useAppStore.getState().deleteVpc(vpc.id);
-          // alert({ title: `VPC deletion submitted`, severity: "success" });
+          // Immediately refresh the active requests list so RequestSelector shows 'destroying'
+          queryClient.invalidateQueries({ queryKey: ["activeRequests"] });
+          queryClient.invalidateQueries({ queryKey: ["requestDetails", vpc.id] });
         } catch (error) {
-          // ✅ Clear active request if delete failed
+          // Revert optimistic update on failure
+          updateVpc(vpc.id, { status: "available" });
           setActiveRequest(null);
           alert({ title: `Failed to delete VPC ${vpc.name || vpc.id}`, severity: "error" });
         } finally {
@@ -178,20 +185,20 @@ export default function Vpcs() {
         title: `Failed to Refresh`,
         severity: "error",
       });
-    }
+  }
   }
 
   return (
-    <div className="space-y-4">
+    <div>
       <Header
         title="VPCs"
-        subtitle="Virtual private clouds provisioned via Terraform"
+        subtitle="Virtual networks for securely hosting cloud resources."
         showSearch={false}
       />
 
       <div className="space-y-4 p-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-wrap gap-3">
           <StatCard
             icon={<Network className="h-4 w-4 text-primary" />}
             iconBg="bg-primary/10"
@@ -210,7 +217,7 @@ export default function Vpcs() {
             value={withNat}
             label="With NAT"
           />
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3">
+          <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Monitor className="h-4 w-4 text-primary" />
@@ -240,7 +247,9 @@ export default function Vpcs() {
         </div>
 
         {/* Search row */}
-        <div className="flex items-center gap-3">
+        <Card className="sticky top-16 z-30 glass-panel backdrop-blur border-border/50 p-0">
+          <CardContent className="py-0 px-0">
+            <div className="flex items-center gap-3 p-4 px-6">
           <div className="relative flex-1">
             <Search
               size={14}
@@ -250,7 +259,7 @@ export default function Vpcs() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, region, or request ID..."
-              className="pl-9 bg-card/50 border-border/50"
+              className="pl-9 bg-background/50"
             />
           </div>
           <Button
@@ -286,7 +295,9 @@ export default function Vpcs() {
               </Link>
             )}
           </TooltipProvider>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Table */}
         <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur overflow-hidden">
@@ -589,7 +600,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
+     <div className="flex-1 min-w-[140px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
       <div
         className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}
       >

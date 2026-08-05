@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   CheckCircle2,
@@ -236,10 +237,10 @@ export function EksList() {
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       <div className="space-y-4 p-6">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+       <div className="flex flex-wrap gap-3">
           <StatCard
             icon={<Network className="h-4 w-4 text-primary" />}
             iconBg="bg-primary/10"
@@ -258,7 +259,7 @@ export function EksList() {
             value={latestVersion}
             label="K8s version"
           />
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3">
+          <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Monitor className="h-4 w-4 text-primary" />
@@ -288,7 +289,9 @@ export function EksList() {
         </div>
 
         {/* Search row */}
-        <div className="flex items-center gap-3">
+        <Card className="sticky top-16 z-30 glass-panel backdrop-blur border-border/50 p-0">
+          <CardContent className="py-0 px-0">
+            <div className="flex items-center gap-3 p-4 px-6">
           <div className="relative flex-1">
             <Search
               size={14}
@@ -298,7 +301,7 @@ export function EksList() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, request ID..."
-              className="pl-9 bg-card/50 border-border/50"
+              className="pl-9 bg-background/50"
             />
           </div>
           <Button
@@ -335,8 +338,9 @@ export function EksList() {
               </TooltipContent>
             )}
           </Tooltip>
-
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Table */}
         <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur overflow-hidden">
@@ -647,7 +651,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
+    <div className="flex-1 min-w-[140px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
       <div
         className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}
       >

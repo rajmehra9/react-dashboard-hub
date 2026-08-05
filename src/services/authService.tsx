@@ -87,12 +87,13 @@ async function getClientIp(): Promise<string> {
 }
 if (!interceptorAttached) {
   axios.interceptors.request.use(async (config) => {
+    config.headers = config.headers || {};
     const token = localStorage.getItem('token');
-    if (token && config.headers) {
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     const ip = await getClientIp();
-    if (ip && config.headers) {
+    if (ip) {
       config.headers['x-client-ip'] = ip;
     }
     return config;
@@ -118,13 +119,24 @@ if (!interceptorAttached) {
       );
 
       // Token expired but user was active — refresh and retry
-      if (isAuthExpiredError && error.response?.data?.code === 'TOKEN_EXPIRED_BUT_ACTIVE' && !originalRequest._retry) {
+      if (isAuthExpiredError && error.response?.data?.code === 'TOKEN_EXPIRED_BUT_ACTIVE' && originalRequest && !originalRequest._retry) {
         originalRequest._retry = true;
-        
+
         const newToken = await refreshAuthToken();
         if (newToken) {
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return axios(originalRequest);
+          const retryConfig = {
+            ...originalRequest,
+            headers: {
+              ...originalRequest.headers,
+              Authorization: `Bearer ${newToken}`,
+            },
+          };
+
+          if (axios.defaults.headers.common) {
+            axios.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+          }
+
+          return axios(retryConfig);
         }
       }
 
@@ -135,7 +147,7 @@ if (!interceptorAttached) {
       
       if (
         error.response?.status === 403 &&
-        !error.config.url.includes("/api/auth/me")
+        originalRequest?.url && !originalRequest.url.includes("/api/auth/me")
       ) {
         const { refreshCurrentUser } = useAppStore.getState();
         await refreshCurrentUser();

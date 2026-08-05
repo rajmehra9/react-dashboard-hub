@@ -181,7 +181,7 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
           </FieldRow>
 
           <FieldRow label="Bucket Type">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <RadioCard
                 checked={form.bucketType === "general"}
                 onChange={() => {
@@ -193,13 +193,13 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                 title="General purpose"
                 desc="Recommended for most use cases and access patterns. General purpose buckets are the original S3 bucket type. They allow a mix of storage classes that redundantly store objects across multiple Availability Zones."
               />
-              <RadioCard
+              {/* <RadioCard
                 checked={form.bucketType === "directory"}
                 onChange={() => { }}
                 disabled
                 title="Directory"
                 desc="Recommended for low-latency use cases. These buckets use only the S3 Express One Zone storage class, which provides faster processing of data within a single Availability Zone."
-              />
+              /> */}
             </div>
           </FieldRow>
 

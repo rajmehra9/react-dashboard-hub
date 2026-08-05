@@ -11,7 +11,7 @@ interface Props {
 
 export function VMStatsBar({ total, running, stopped, remainingquota, onRequestIncrease }: Props) {
   return (
-    <div className="pb-2">
+    <div>
       <div className="flex flex-wrap gap-3">
         <div className="flex-1 min-w-[140px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">

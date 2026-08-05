@@ -393,13 +393,6 @@ useEffect(() => {
       });
       valid = false;
     }
-    if (mode === "vpc-and-more") {
-      const err = validateName(autoName);
-      setNameError(err);
-      if (err) {
-        return false;
-      }
-    }
     return valid;
   };
 
@@ -920,7 +913,7 @@ const create = async () => {
                   <Segmented
                     value={azCount}
                     options={[1, 2, 3]}
-                    onChange={(v) => setAzCount(Number(v))}
+                    onChange={setAzCount}
                   />
                 </Field>
 
@@ -966,7 +959,7 @@ const create = async () => {
                   <Segmented
                     value={publicCount}
                     options={publicOptions}
-                    onChange={(v) => setPublicCount(Number(v))}
+                    onChange={setPublicCount}
                   />
                 </Field>
 
@@ -978,7 +971,7 @@ const create = async () => {
                   <Segmented
                     value={privateCount}
                     options={privateOptions}
-                    onChange={(v) => setPrivateCount(Number(v))}
+                    onChange={setPrivateCount}
                   />
                 </Field>
 

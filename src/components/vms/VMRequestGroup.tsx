@@ -210,28 +210,13 @@ export function VMRequestGroup({
                       {!isTerminated && vm.publicIp ? (
                         <div className="flex items-center gap-1">
                           <span className="font-mono text-sm text-primary">{vm.publicIp}</span>
-                          <div className="relative">
-                            {copiedIp === vm.publicIp && (
-                              <div className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white shadow-lg animate-in fade-in zoom-in-95 duration-200">
-                                Copied!
-                              </div>
-                            )}
-
-                            <button
-                              onClick={() => onCopyIp(vm.publicIp)}
-                              className={`flex h-6 w-6 items-center justify-center rounded-sm transition-all duration-200 ${
-                                copiedIp === vm.publicIp
-                                  ? "bg-green-600 text-white"
-                                  : "text-muted-foreground hover:bg-primary hover:text-white"
-                              }`}
-                            >
-                              {copiedIp === vm.publicIp ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <Copy className="h-4 w-4" />
-                              )}
-                            </button>
-                          </div>
+                           <Button variant="ghost" size="icon" className="h-5 w-5"
+                            tooltip={copiedIp === vm.publicIp ? "Copied!" : "Copy"}
+                            onClick={() => onCopyIp(vm.publicIp)}>
+                            {copiedIp === vm.publicIp
+                              ? <Check className="h-3 w-3 text-green-500" />
+                              : <Copy className="h-3 w-3" />}
+                          </Button>
                         </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>

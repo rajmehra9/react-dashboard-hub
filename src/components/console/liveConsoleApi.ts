@@ -41,9 +41,8 @@ export interface RequestDetails {
 }
 
 export interface LogsResponse {
-  logs: any;
+  logs: string;
   status: string;
-  isComplete?: boolean;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -91,7 +90,15 @@ export async function fetchActiveRequestsApi(): Promise<ActiveRequest[]> {
   const requests: ActiveRequest[] = Array.isArray(raw) ? raw : (raw?.data ?? []);
   console.log("Active requests fetched:", requests);
    return requests
-    .filter((r: any) => !r.logs_cleared_at)
+    .filter((r: any) => {
+      if (!r.logs_cleared_at) return true;
+      return (
+        r.updated_at &&
+        new Date(r.updated_at) > new Date(r.logs_cleared_at) &&
+        (r.last_operation === "destroy" || r.last_operation === "delete" ||
+          r.status === "destroying" || r.status === "destroyed")
+      );
+    })
     .map((r: any) => ({ ...r }));
 }
 
@@ -105,6 +112,7 @@ interface ServiceEndpoints {
   details?: (requestId: string) => string;
   logs?: (requestId: string, operation?: string) => string;
   download?: (requestId: string) => string;
+  clearLogs?: (requestId: string) => string;
   // "text" services return the raw log file body (e.g. piped straight from S3)
   // instead of the default `{ logs, status }` JSON envelope.
   logsFormat?: "json" | "text";
@@ -117,38 +125,42 @@ const SERVICE_ENDPOINTS: Record<string, ServiceEndpoints> = {
     base: env.vpcService,
     details: (id) => `/requests/${id}`,
     logs: (id) => `/requests/${id}/logs`,
+    clearLogs: (id) => `/requests/${id}/logs`,
     live: (id) => `/requests/${id}/logs/live`,
   },
   "s3-service": {
     base: env.bucketService,
     logs: (id) => `buckets/${id}/logs`,
     download: (id) => `buckets/${id}/logs/download`,
+    clearLogs: (id) => `buckets/${id}/logs`,
     live: (id) => `buckets/${id}/live-logs`,
   },
   "lb-service": {
     base: env.lbService,
     logs: (id) => `/load-balancers/by-request/${id}/logs`,
+    clearLogs: (id) => `/load-balancers/by-request/${id}/logs`,
     live: (id) => `/load-balancers/by-request/${id}/logs/live`,
   },
   "eks-cluster-service": {
     base: env.eksClusterService,
    //details: (name) => `/eks/${name}`,
     logs: (id) => `/eks/${id}/logs`,
+    download: (id) => `/eks/${id}/logs/download`,
+    clearLogs: (id) => `/eks/${id}/logs`,
     live: (id) => `/eks/${id}/logs/live`,  
   },
   "rds-service": {
     base: env.rds,
     details: (id) => `/clusters/${id}/status`,
     live: (id) => `/clusters/${id}/logs/live`,
-    logs: (id) => `/clusters/${id}/logs/`,
+    logs: (id) => `/clusters/${id}/logs`,
+    clearLogs: (id) => `/clusters/${id}/logs`,
   },
    "route53-service": {
     base: env.route53Service,
-    // matches router.get("/logs/:requestId/:operation/:fileName", ...)
-    // and uploadDNSLogsToS3(requestId, operation, logs, `${operation}.log`)
     logs: (id, operation = "create") => `/logs/${id}/${operation}/${operation}.log`,
     logsFormat: "text",
-    // matches router.get("/records/:requestId/live-logs", getDNSLiveLogs)
+    clearLogs: (id) => `/records/${id}/logs`,
     live: (id) => `/records/${id}/live-logs`,
   },
   "ec2-service": {
@@ -284,15 +296,16 @@ export async function fetchLiveRequestLogsStreamApi(
     signal,
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to connect to live logs: ${response.status} ${response.statusText}`);
-  }
-
   return response;
 }
 
 // ── Clear request logs ───────────────────────────────────────────────────────
-export async function clearRequestLogsApi(requestId: string): Promise<void> {
+export async function clearRequestLogsApi(requestId: string, service?: string): Promise<void> {
+  const endpoints = service ? SERVICE_ENDPOINTS[service] : undefined;
+  if (endpoints?.clearLogs) {
+    await apiClient.delete<ApiResponse<void>>(endpoints.base, endpoints.clearLogs(requestId));
+    return;
+  }
   await apiClient.delete<ApiResponse<void>>(
     env.vmRequest,
     `/api/vm-requests/${requestId}/logs`
@@ -310,10 +323,11 @@ export async function clearRequestLogsApi(requestId: string): Promise<void> {
 export async function downloadRequestLogsApi(requestId: string, service?: string): Promise<void> {
   const endpoints = service ? SERVICE_ENDPOINTS[service] : undefined;
 
-  if (endpoints?.logs) {
-    // For services with logs endpoints, construct download URL
-    const logsPath = endpoints.logs(requestId);
-    const downloadUrl = `${endpoints.base}${logsPath}/download`;
+  if (endpoints?.download || endpoints?.logs) {
+    const downloadPath = endpoints.download
+      ? endpoints.download(requestId)
+      : `${endpoints.logs!(requestId)}/download`;
+    const downloadUrl = `${endpoints.base}${downloadPath}`;
     
     const headers = await apiClient.getAuthHeaders();
     const response = await fetch(downloadUrl, { headers });

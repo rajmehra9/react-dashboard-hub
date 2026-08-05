@@ -9,10 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMyManager } from "@/hooks/useMyManager";
 import { ManagerDisplay } from "@/components/common/ManagerDisplay";
-// import {
-//   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-// } from "@/components/ui/select";
-// import { ManagerOption } from "@/utils/myVMs.utils";
 
 interface Props {
     open: boolean;
@@ -38,7 +34,7 @@ interface Props {
 
     onSubmit: (approverEmail: string) => void;
 }
-
+const MAX_LB_QUOTA = 10;
 export function LoadBalancerQuotaIncreaseDialog({
     open, onOpenChange, currentMaxLoadBalancers, usedLoadBalancers,
     requestedquota, setrequestedquota, reason, setreason,
@@ -55,9 +51,36 @@ export function LoadBalancerQuotaIncreaseDialog({
         : selectedSuperAdmin;
 
     // Submit is blocked if manager hasn't resolved yet or no email selected
-    const canSubmit = !isMAxREached && !submitquota && !managerLoading && !!managerEmail.trim();
+    const canSubmit =
+        !isMAxREached &&
+        !submitquota &&
+        !managerLoading &&
+        !!managerEmail.trim() &&
+        requestedquota > currentMaxLoadBalancers &&
+        requestedquota <= MAX_LB_QUOTA &&
+        !quotaError &&
+        !!reason.trim();
+    const reasonError =
+        touched && !reason.trim()
+            ? "Reason is required"
+            : "";
+    const resetForm = () => {
+        setrequestedquota(0);
+        setreason("");
+        setQuotaError("");
+        setTouched(false);
+        setSelectedSuperAdmin("");
+    };
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+            open={open}
+            onOpenChange={(open) => {
+                if (!open) {
+                    resetForm();
+                }
+                onOpenChange(open);
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Request Load Balancer Quota Increase</DialogTitle>
@@ -69,14 +92,20 @@ export function LoadBalancerQuotaIncreaseDialog({
                 <div className="space-y-4 py-2">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="text-muted-foreground text-xs">Current Quota</Label>
+                            <Label className="text-muted-foreground text-xs">
+                                Current Quota
+                            </Label>
                             <p className="text-lg font-semibold">
                                 {currentMaxLoadBalancers} Load Balancers
                             </p>
-
                             <p className="text-xs text-muted-foreground">
                                 {usedLoadBalancers} Load Balancer(s) in use
                             </p>
+                            {isMAxREached && (
+                                <p className="text-sm text-red-500 mt-1">
+                                    {`Maximum Load Balancer quota limit (${MAX_LB_QUOTA}) already reached.`}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-1">
@@ -84,9 +113,9 @@ export function LoadBalancerQuotaIncreaseDialog({
                             <Input
                                 id="requested-quota"
                                 type="number"
+                                min={currentMaxLoadBalancers + 1}
+                                max={MAX_LB_QUOTA}
                                 className={quotaError ? "border-red-500" : ""}
-                                min="0"
-                                max="50"
                                 value={requestedquota === 0 ? "" : requestedquota}
                                 onChange={(e) => {
                                     const value = e.target.value;
@@ -101,11 +130,25 @@ export function LoadBalancerQuotaIncreaseDialog({
                                         numericValue = Number(value.replace(/^0+/, ""));
                                     }
                                     setrequestedquota(numericValue);
-                                    if (currentMaxLoadBalancers >= 50) {
-                                        setQuotaError("Maximum Load Balancer quota limit (50) already reached");
+                                    if (currentMaxLoadBalancers >= MAX_LB_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum Load Balancer quota limit (${MAX_LB_QUOTA}) already reached`
+                                        );
                                         return;
                                     }
-                                    setQuotaError(numericValue <= currentMaxLoadBalancers ? `New limit must be greater than ${currentMaxLoadBalancers}` : "");
+                                    if (numericValue <= currentMaxLoadBalancers) {
+                                        setQuotaError(
+                                            `New limit must be greater than ${currentMaxLoadBalancers}`
+                                        );
+                                        return;
+                                    }
+                                    if (numericValue > MAX_LB_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum allowed quota is ${MAX_LB_QUOTA}`
+                                        );
+                                        return;
+                                    }
+                                    setQuotaError("");
                                 }}
                             />
                             {touched && quotaError && <p className="text-sm text-red-500">{quotaError}</p>}
@@ -121,8 +164,16 @@ export function LoadBalancerQuotaIncreaseDialog({
                             rows={3}
                             placeholder="Explain why you need additional Load Balancer quota..."
                             value={reason}
-                            onChange={(e) => setreason(e.target.value)}
+                            onChange={(e) => {
+                                setTouched(true);
+                                setreason(e.target.value);
+                            }}
                         />
+                        {reasonError && (
+                            <p className="text-sm text-red-500">
+                                {reasonError}
+                            </p>
+                        )}
                     </div>
 
                     <ManagerDisplay
@@ -138,9 +189,25 @@ export function LoadBalancerQuotaIncreaseDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button
-                        onClick={() => onSubmit(managerEmail)}
+                        variant="outline"
+                        onClick={() => {
+                            resetForm();
+                            onOpenChange(false);
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={() => {
+                            setTouched(true);
+                            if (!reason.trim()) return;
+                            if (quotaError) return;
+                            if (requestedquota <= currentMaxLoadBalancers) return;
+                            if (requestedquota > MAX_LB_QUOTA) return;
+                            onSubmit(managerEmail);
+                            resetForm();
+                        }}
                         disabled={!canSubmit}
                     >
                         {submitquota ? "Submitting..." : "Submit Request"}

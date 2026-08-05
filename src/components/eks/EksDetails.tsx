@@ -116,20 +116,20 @@ const statusColor =
     <div className="space-y-4">
       {!embedded && (
         <Header
-          title={`EKS ${clusterNames}`}
-          subtitle={`Details for ${eksId}`}
+          title={"EKS Clusters"}
+          subtitle={"Managed Kubernetes clusters for containerized applications."}
         />
       )}
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-6 pb-6 pt-2ncer">
         {!embedded && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/aws/eks" className="text-primary hover:underline">
               EKS Clusters
             </Link>
             <ChevronRight size={14} />
-            <span className={statusColor}>
-              {cluster?.status ?? "—"}
+            <span >
+              {cluster?.cluster_name ?? "—"}
             </span>
           </div>
         )}

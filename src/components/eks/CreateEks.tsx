@@ -302,7 +302,7 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
         <div>
           <Header
             title="Configure cluster"
-            subtitle="Amazon EKS clusters provisioned via Terraform into existing VPCs"
+            subtitle="Managed Kubernetes clusters for containerized applications."
             showSearch={false}
           />
 

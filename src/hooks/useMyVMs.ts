@@ -173,7 +173,7 @@ export function useMyVMs() {
       }
       try {
         const data = await fetchVMStatusApi(instanceId);
-        const normalized = normalizeStatus(data.status as any);
+        const normalized = normalizeStatus(data.status);
 
         setVMs((prev) =>
           prev.map((vm) =>

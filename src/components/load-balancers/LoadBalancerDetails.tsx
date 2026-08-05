@@ -49,7 +49,7 @@ export function LoadBalancerDetails({
     { key: "network", label: "Network mapping" },
     { key: "resource", label: "Resource map" },
     { key: "security", label: "Security" },
-    { key: "tags", label: "Tags" },
+    /* { key: "tags", label: "Tags" }, */
   ];
 
   const lbTypeLabel = lb.type === "application" ? "Application" : lb.type === "network" ? "Network" : lb.type;
@@ -73,10 +73,12 @@ export function LoadBalancerDetails({
   return (
     <div className="space-y-4">
       {!embedded && (
-        <Header title="Load Balancer" subtitle={`Details for ${lb.name}`} />
+        <Header 
+          title="Load Balancers"
+          subtitle="Network traffic management and distribution resources." />
       )}
 
-      <div className="space-y-5 p-6">
+      <div className="space-y-5 px-6 pb-6 pt-2">
         {!embedded && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Link to="/aws/load-balancers" className="text-primary hover:underline">

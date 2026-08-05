@@ -23,6 +23,7 @@ import {
 import { env } from "@/lib/env";
 import axios from "axios";
 import { SERVICE_LABELS } from "@/components/requests/vmRequestsApi";
+import { useAppStore } from "@/store/appStore";
 
 interface Request {
   request_id: string;
@@ -190,8 +191,10 @@ export function RecentRequests() {
       ? requests.data.data
       : [];
 
-  const recentRequests =
-    requestItems.filter((r: Request) => !r.logs_cleared_at).slice(0, 5) || [];
+  const recentRequests = requestItems.slice(0, 5) || [];
+
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isStakeholder = currentUser?.role === "SplunkOps.Stakeholder";
 
   return (
     <div className="glass-panel rounded-xl">
@@ -202,8 +205,12 @@ export function RecentRequests() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate("/requests")}
-          className="text-muted-foreground hover:text-foreground"
+          disabled={isStakeholder}
+          onClick={() => !isStakeholder && navigate("/requests")}
+          className={cn(
+            "text-muted-foreground hover:text-foreground",
+            isStakeholder && "opacity-50 cursor-not-allowed"
+          )}
         >
           View All
           <ArrowRight className="ml-2 h-4 w-4" />
@@ -243,12 +250,20 @@ function RequestRow({ request }: { request: Request }) {
    const serviceLabel =
     SERVICE_LABELS[request.service ?? ""] ?? request.service ?? "Request";
 
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isStakeholder = currentUser?.role === "SplunkOps.Stakeholder";
+  const logsCleared = !!request.logs_cleared_at;
+  const canOpenConsole = isAwsConnected && !isStakeholder && !logsCleared;
+
   const rowContent = (
     <div
-      onClick={() => isAwsConnected && navigate(`/console?request=${request.request_id}`)}
+      onClick={() =>
+        canOpenConsole &&
+        navigate(`/console?request=${request.request_id}`)
+      }
       className={cn(
         "flex items-center justify-between p-4 transition-colors",
-        isAwsConnected
+        canOpenConsole
           ? "hover:bg-muted/30 cursor-pointer"
           : "opacity-50 cursor-not-allowed"
       )}
@@ -300,12 +315,21 @@ function RequestRow({ request }: { request: Request }) {
     </div>
   );
 
+  if (logsCleared) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
+        <TooltipContent>
+          <p>Logs Cleared</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   if (!isAwsConnected) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          {rowContent}
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{rowContent}</TooltipTrigger>
         <TooltipContent>
           <p>AWS Disconnected</p>
         </TooltipContent>

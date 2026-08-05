@@ -124,14 +124,10 @@ export function AuthProvider({
   redirectResult,
   msalRedirectResponseDetected,
   msalRedirectError,
-  msalRedirectResponseDetected,
-  msalRedirectError,
 }: {
   children: React.ReactNode;
   msalEnabled?: boolean;
   redirectResult?: AuthenticationResult | null;
-  msalRedirectResponseDetected?: boolean;
-  msalRedirectError?: string | null;
   msalRedirectResponseDetected?: boolean;
   msalRedirectError?: string | null;
 }) {
@@ -304,26 +300,6 @@ export function AuthProvider({
     }
   }, [accounts, instance, msalEnabled]);
 
-  // ── Auto-logout when the stored JWT expires while the app stays open ───────
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    const expirationTime = getTokenExpirationTime(token);
-    if (!expirationTime) return;
-
-    if (Date.now() >= expirationTime) {
-      handleSessionExpired('SESSION_EXPIRED');
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      handleSessionExpired('SESSION_EXPIRED');
-    }, expirationTime - Date.now());
-
-    return () => window.clearTimeout(timeoutId);
-  }, [user, navigate]);
-
   // ── Main auth initialisation (runs once on mount) ────────────────────────────
   useEffect(() => {
     async function initAuth() {
@@ -340,24 +316,18 @@ export function AuthProvider({
             if (backendUser?.data?.user) {
               setUser(backendUser.data.user);
               setCurrentUser(backendUser.data.user);
-              setCurrentUser(backendUser.data.user);
             } else {
               clearStoredSession();
-              clearStoredSession();
               setUser(null);
-              setCurrentUser(null);
               setCurrentUser(null);
             }
           } catch {
             clearStoredSession();
-            clearStoredSession();
             setUser(null);
-            setCurrentUser(null);
             setCurrentUser(null);
           }
         } else {
           setUser(null);
-          setCurrentUser(null);
           setCurrentUser(null);
         }
         setLoading(false);
@@ -396,8 +366,6 @@ export function AuthProvider({
             account: redirectResult.account,
             scopes: loginRequest.scopes,
           })).accessToken;
-            scopes: loginRequest.scopes,
-          })).accessToken;
 
           const inviteToken = localStorage.getItem('inviteToken');
           const inviteEmail = localStorage.getItem('inviteEmail');
@@ -410,7 +378,6 @@ export function AuthProvider({
           const activeToken = inviteToken || remindToken;
           
           if (activeToken && expectedEmail) {
-            const msEmail = selectedMicrosoftEmail;
             const msEmail = selectedMicrosoftEmail;
             if (msEmail?.toLowerCase() !== expectedEmail.toLowerCase()) {
               console.error(`[AuthProvider] Wrong Microsoft account used for ${tokenType}`);
@@ -426,7 +393,6 @@ export function AuthProvider({
           }
 
           // Exchange with backend for session JWT — using centralized API
-          const data = await microsoftLoginApi(accessToken, { 
           const data = await microsoftLoginApi(accessToken, { 
             inviteToken: inviteToken || null, 
             remindToken: remindToken || null 
@@ -465,18 +431,6 @@ export function AuthProvider({
               return;
             }
 
-            const loggedInEmail = getBackendUserEmail(loggedInUser);
-
-            if (selectedMicrosoftEmail && loggedInEmail && selectedMicrosoftEmail !== loggedInEmail) {
-              console.error('[AuthProvider] Microsoft account mismatch after backend exchange');
-              clearStoredSession();
-              setUser(null);
-              setCurrentUser(null);
-              setError('Selected Microsoft account does not match the signed-in application user. Please try again.');
-              navigate('/login', { replace: true });
-              return;
-            }
-
             setUser(loggedInUser);
             setCurrentUser(loggedInUser);
 
@@ -501,7 +455,6 @@ export function AuthProvider({
           return;
         } catch (err: any) {
           console.error('[AuthProvider] Microsoft redirect login error:', err);
-          clearStoredSession();
           clearStoredSession();
           localStorage.removeItem('inviteToken');
           localStorage.removeItem('inviteEmail');
@@ -530,7 +483,6 @@ export function AuthProvider({
             }
           } else {
             clearStoredSession();
-            clearStoredSession();
             setUser(null);
             setCurrentUser(null);
           }
@@ -539,7 +491,6 @@ export function AuthProvider({
           setCurrentUser(null);
         }
       } catch {
-        clearStoredSession();
         clearStoredSession();
         setUser(null);
         setCurrentUser(null);
@@ -551,45 +502,6 @@ export function AuthProvider({
     initAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty — runs once on mount. redirectResult is a stable prop from main.tsx.
-
-  // ── Activity tracking ────────────────────────────────────────────────────────
-  useEffect(() => {
-    let activityTimer: ReturnType<typeof setTimeout>;
-
-    const trackActivity = () => {
-      // Update activity timestamp in localStorage for reference
-      localStorage.setItem('lastActivity', Date.now().toString());
-      
-      // Reset timer
-      clearTimeout(activityTimer);
-      activityTimer = setTimeout(() => {
-        // Auto-logout after 4 hours of inactivity
-        if (user) {
-          console.log('[AuthProvider] Auto-logout due to inactivity');
-          logout();
-        }
-      }, 4 * 60 * 60 * 1000); // 4 hours
-    };
-
-    if (user) {
-      // Track mouse, keyboard, and scroll activity
-      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-      events.forEach(event => {
-        document.addEventListener(event, trackActivity, true);
-      });
-      
-      // Initialize timer
-      trackActivity();
-    }
-
-    return () => {
-      clearTimeout(activityTimer);
-      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-      events.forEach(event => {
-        document.removeEventListener(event, trackActivity, true);
-      });
-    };
-  }, [user]);
 
   // ── Cross-tab logout detection ───────────────────────────────────────────────
   useEffect(() => {

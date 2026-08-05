@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
-import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useLogin';
 import { Loader2 } from 'lucide-react';
@@ -43,24 +42,6 @@ function mapLoginError(error: string): string {
     }
   }
   return error; // fallback: show as-is (e.g. "email mismatch" custom message)
-}
-
-function getAuthenticatedDestination(searchParams: URLSearchParams): string {
-  const returnUrlEncoded = searchParams.get('returnUrl');
-  const returnUrl = returnUrlEncoded ? decodeURIComponent(returnUrlEncoded) : null;
-
-  if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
-    return returnUrl;
-  }
-
-  return '/providers';
-}
-
-function redirectAuthenticatedSession(searchParams: URLSearchParams): boolean {
-  if (!localStorage.getItem('token')) return false;
-
-  window.location.replace(getAuthenticatedDestination(searchParams));
-  return true;
 }
 
 function getAuthenticatedDestination(searchParams: URLSearchParams): string {
@@ -163,7 +144,6 @@ export default function Login() {
     sessionStorage.removeItem('msalRedirectHandled');
 
     navigate(getAuthenticatedDestination(searchParams), { replace: true });
-    navigate(getAuthenticatedDestination(searchParams), { replace: true });
   }, [user, navigate, searchParams, location.pathname]);
 
 
@@ -177,18 +157,7 @@ export default function Login() {
         window.location.replace(getAuthenticatedDestination(searchParams));
         return;
       }
-    const handlePageShow = () => {
-      resetLoginState();
 
-      if (location.pathname === '/login' && localStorage.getItem('token')) {
-        setMsLoading(true);
-        window.location.replace(getAuthenticatedDestination(searchParams));
-        return;
-      }
-
-      setMsLoading(false);
-      setBfcacheKey(k => k + 1); // force button re-render
-      setFormErrors({});
       setMsLoading(false);
       setBfcacheKey(k => k + 1); // force button re-render
       setFormErrors({});
@@ -200,21 +169,12 @@ export default function Login() {
             sessionStorage.removeItem(k);
           }
         });
-      Object.keys(sessionStorage)
-        .filter(k => k.toLowerCase().includes('msal'))
-        .forEach(k => {
-          if (k.includes('interaction') || k.includes('request') || k.includes('state')) {
-            sessionStorage.removeItem(k);
-          }
-        });
 
-      if (error) clearError();
       if (error) clearError();
     };
 
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [error, clearError, resetLoginState, location.pathname, searchParams]);
   }, [error, clearError, resetLoginState, location.pathname, searchParams]);
 
   // ── Form validation (Zod v4) ─────────────────────────────────────────────────
@@ -252,12 +212,6 @@ export default function Login() {
 
   const handleMicrosoftLogin = async () => {
     if (msLoading) return;
-
-    if (redirectAuthenticatedSession(searchParams)) {
-      setMsLoading(true);
-      return;
-    }
-
 
     if (redirectAuthenticatedSession(searchParams)) {
       setMsLoading(true);
@@ -607,7 +561,7 @@ hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.6, delay }}
         style={{ animation: `float-y ${4 + float * 0.3}s ease-in-out infinite` }}
-        className={`absolute z-20 rounded-xl border border-border bg-card/80 p-3 shadow-[var(--shadow-elevated)] backdrop-blur-md ${className}`}
+        className={`absolute z-20 rounded-xl border border-border glass-panel p-3 shadow-[var(--shadow-elevated)] backdrop-blur-md ${className}`}
       >
         {children}
       </motion.div>
@@ -712,24 +666,12 @@ hover:shadow-[0_0_20px_hsl(var(--primary)/0.25)]
   const hasStoredSession = Boolean(localStorage.getItem('token'));
 
   if (authLoading || hasStoredSession) {
-  const hasStoredSession = Boolean(localStorage.getItem('token'));
-
-  if (authLoading || hasStoredSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  if (user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
 
   if (user) {
     return (

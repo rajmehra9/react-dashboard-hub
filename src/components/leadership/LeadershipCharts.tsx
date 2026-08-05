@@ -6,9 +6,10 @@ import {
 import { format, parseISO } from 'date-fns';
 import {
   Activity, Globe2, LineChart as LineIcon, PieChart as PieIcon,
-  Users,
+  Users, CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ServiceCostStackedChart } from './ServiceCostStackedChart';
 
 type TooltipItem = {
@@ -214,9 +215,11 @@ interface Props {
   data: UnifiedData;
   rangeDays: 7 | 30 | 90;
   exportMode?: boolean;
+  granularity?: 'daily' | 'monthly';
+  onGranularityChange?: (v: 'daily' | 'monthly') => void;
 }
 
-export const LeadershipCharts = forwardRef<HTMLDivElement, Props>(function LeadershipCharts({ data, rangeDays, exportMode = false }, ref) {
+export const LeadershipCharts = forwardRef<HTMLDivElement, Props>(function LeadershipCharts({ data, rangeDays, exportMode = false, granularity = 'daily', onGranularityChange }, ref) {
 
   // Transform unified data for charts
   const trendData = useMemo(() => {
@@ -511,98 +514,64 @@ export const LeadershipCharts = forwardRef<HTMLDivElement, Props>(function Leade
         </GlassCard>
       </div>
 
-      <GlassCard className="p-5">
-        <div className='flex justify-between'>
-          <CardHeader
-            icon={LineIcon}
-            title="Cost and usage"
-            subtitle="AWS Services Cost"
-            iconColor="#6b8caf"
-          />
-          <div className='text-start'>
-            <div className="rounded-xl glass-panel p-4 py-2 ">
-              <div className='flex gap-10'>
-
-                <div>
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2 pr-6">
-                      <span className="h-2.5 w-2.5 rounded-full bg-blue-500"></span>
-                      <span className="text-[11px] text-muted-foreground">EC2 </span>
-                    </div>
-                    <span className="text-[12px] font-semibold">$4.68</span>
-                  </div>
-
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-green-500"></span>
-                      <span className="text-[11px] text-muted-foreground">VPC</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$0.00</span>
-                  </div>
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-orange-500"></span>
-                      <span className="text-[11px] text-muted-foreground">S3</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$0.00</span>
-                  </div>
-
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-red-500"></span>
-                      <span className="text-[11px] text-muted-foreground">LB</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$1.36</span>
-                  </div>
-
-                </div>
-
-                <div>
-
-
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2 pr-14">
-                      <span className="h-2.5 w-2.5 rounded-full bg-purple-500"></span>
-                      <span className="text-[11px] text-muted-foreground">RDS</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$0.21</span>
-                  </div>
-
-                  <div className=" flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-cyan-400"></span>
-                      <span className="text-[11px] text-muted-foreground">Route 53</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$0.00</span>
-                  </div>
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
-                      <span className="text-[11px] text-muted-foreground">EKS</span>
-                    </div>
-                    <span className="text-[12px] font-semibold ">$6.64</span>
-                  </div>
-                </div>
-              </div>
-
-
-
-              <div className="my-1 border-t border-slate-700"></div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-muted-foreground">Total Cost</span>
-                <span className="text-base font-bold ">$12.43</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="h-[280px]">
-          <ServiceCostStackedChart
-            data={data.costByService ?? []}
-          />
-        </div>
-      </GlassCard>
+      <CostAndUsageCard data={data.costByService} granularity={granularity} onGranularityChange={onGranularityChange} />
     </div>
   );
 });
+
+type ServiceCostRow = {
+  date: string;
+  ec2: number; vpc: number; s3: number; lb: number;
+  rds: number; route53: number; eks: number; total: number;
+};
+
+function aggregateMonthly(rows: ServiceCostRow[]) {
+  const map = new Map<string, ServiceCostRow>();
+  for (const row of rows) {
+    const month = row.date.slice(0, 7); // "yyyy-MM"
+    const existing = map.get(month);
+    if (!existing) {
+      map.set(month, { ...row, date: month });
+    } else {
+      existing.ec2 += row.ec2; existing.vpc += row.vpc; existing.s3 += row.s3;
+      existing.lb += row.lb; existing.rds += row.rds; existing.route53 += row.route53;
+      existing.eks += row.eks; existing.total += row.total;
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function CostAndUsageCard({ data, granularity, onGranularityChange }: { data: ServiceCostRow[]; granularity: 'daily' | 'monthly'; onGranularityChange?: (v: 'daily' | 'monthly') => void }) {
+
+  const aggregated = useMemo(
+    () => granularity === 'monthly' ? aggregateMonthly(data) : data,
+    [data, granularity]
+  );
+
+  return (
+    <GlassCard className="p-5">
+      <div className="flex justify-between items-start">
+        <CardHeader
+          icon={LineIcon}
+          title="Cost and usage"
+          subtitle="AWS Services Cost"
+          iconColor="#6b8caf"
+        />
+        <Select value={granularity} onValueChange={(v) => onGranularityChange?.(v as 'daily' | 'monthly')}>
+          <SelectTrigger className="w-[140px] focus:ring-0 focus:ring-offset-0 cursor-pointer hover:bg-accent hover:text-accent-foreground">
+            <CalendarDays className="mr-2 h-4 w-4 shrink-0" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="daily" className="cursor-pointer">Daily</SelectItem>
+            <SelectItem value="monthly" className="cursor-pointer">Monthly</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="h-[280px]">
+        <ServiceCostStackedChart data={aggregated} />
+      </div>
+    </GlassCard>
+  );
+}

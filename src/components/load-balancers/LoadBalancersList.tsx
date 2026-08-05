@@ -13,6 +13,7 @@ import {
   ArrowUpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -250,14 +251,29 @@ export function LoadBalancersList() {
     return lbStatusConfig[status.toLowerCase()]?.color ?? lbStatusConfig.pending.color;
   };
 
+  const lbStateLabel: Record<string, string> = {
+    pending: "Pending",
+    provisioning: "Provisioning",
+    creating: "Creating",
+    completed: "Completed",
+    active: "Completed",
+    failed: "Failed",
+    destroying: "Destroying",
+    deleting: "Deleting",
+    terminating: "Terminating",
+    destroyed: "Destroyed",
+    deleted: "Deleted",
+    terminated: "Terminated",
+    retrying: "Retrying",
+    retrying_terminate: "Retrying Terminate",
+  };
+
   const rows: LbRow[] = useMemo(() =>
     lbs.map((lb) => ({
       id: lb.id,
       requestId: lb.request_id ?? "-",
       name: lb.name,
-      state: lb.status === "active"
-        ? "Completed"
-        : lb.status.charAt(0).toUpperCase() + lb.status.slice(1),
+      state: lbStateLabel[lb.status.toLowerCase()] ?? lb.status,
 
       statusColor: getStatusColor(lb.status),
 
@@ -311,16 +327,15 @@ export function LoadBalancersList() {
   const activeUserLbs = userOwnedLbs.filter(
     (lb) => lb.user_id === user?.id && !TERMINAL_STATUSES.includes(lb.status)
   );
-  const hasAlb = activeUserLbs.some((lb) => lb.type === "application");
-  const hasNlb = activeUserLbs.some((lb) => lb.type === "network");
 
   // provisioningLb.type tells us which kind is currently mid-flight
-  const albBlocked = hasAlb || !!provisioningAlb;
-  const nlbBlocked = hasNlb || !!provisioningNlb;
+  const quotaReached = userLoadBalancerCount >= MAX_LBS;
+  const albBlocked = !!provisioningAlb || quotaReached;
+  const nlbBlocked = !!provisioningNlb || quotaReached;
 
-  const isCreateDisabled = albBlocked && nlbBlocked;
+  const isCreateDisabled = quotaReached;
   const createDisabledReason = isCreateDisabled
-    ? "You already have both an ALB and an NLB under your name. Delete one before creating another."
+    ? `Load Balancer quota reached (${MAX_LBS}).`
     : null;
 
   const allSelected = sorted.length > 0 && sorted.every((r) => selected.has(r.id));
@@ -337,17 +352,17 @@ export function LoadBalancersList() {
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       <Header
         title="Load Balancers"
-        subtitle="Application and Network Load Balancers provisioned via Terraform"
+        subtitle="Network traffic management and distribution resources."
         showSearch={false}
       />
 
-      <div className="space-y-4 px-6 pb-6">
+      <div className="space-y-4 p-6">
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-wrap gap-3">
           <StatCard
             icon={<Scale className="h-4 w-4 text-primary" />}
             iconBg="bg-primary/10"
@@ -369,7 +384,7 @@ export function LoadBalancersList() {
             label="NLB"
           />
 
-          <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3">
+          <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                 <Monitor className="h-4 w-4 text-primary" />
@@ -399,51 +414,53 @@ export function LoadBalancersList() {
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-3">
+        <Card className="sticky top-16 z-30 glass-panel backdrop-blur border-border/50 p-0">
+          <CardContent className="py-0 px-0">
+            <div className="flex items-center gap-3 p-4 px-6">
+              <div className="relative flex-1">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                />
 
-          <div className="relative flex-1">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
+                <Input
+                  value={globalFilter}
+                  onChange={(e) => setGlobalFilter(e.target.value)}
+                  placeholder="Search by name, region, or request ID..."
+                  className="pl-9 bg-background/50"
+                />
+              </div>
 
-            <Input
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search by name, region, or request ID..."
-              className="pl-9 bg-card/50 border-border/50"
-            />
-          </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-full shrink-0"
+                onClick={async () => { await fetchLbs(); alert({ title: "Refreshed", severity: "success" }); }}
+              >
+                <RefreshCw size={14} />
+              </Button>
 
-          <Button
-            variant="outline"
-            size="icon"
-            className="rounded-full shrink-0"
-            onClick={async () => { await fetchLbs(); alert({ title: "Refreshed", severity: "success" }); }}
-          >
-            <RefreshCw size={14} />
-          </Button>
-
-          <Button
-            className="bg-primary hover:bg-primary/90 text-white gap-1.5 shrink-0"
-            title={!loading ? createDisabledReason ?? undefined : undefined}
-            tooltip={
-              !loading && createDisabledReason
-                ? createDisabledReason
-                : undefined
-            }
-            onClick={() => {
-              if (!loading && !isCreateDisabled) {
-                setChooserOpen(true);
-              }
-            }}
-            disabled={loading || isCreateDisabled}
-          >
-            <Plus size={14} />
-            Create Load Balancer
-          </Button>
-
-        </div>
+              <Button
+                className="bg-primary hover:bg-primary/90 text-white gap-1.5 shrink-0"
+                title={!loading ? createDisabledReason ?? undefined : undefined}
+                tooltip={
+                  !loading && createDisabledReason
+                    ? createDisabledReason
+                    : undefined
+                }
+                onClick={() => {
+                  if (!loading && !isCreateDisabled) {
+                    setChooserOpen(true);
+                  }
+                }}
+                disabled={loading || isCreateDisabled}
+              >
+                <Plus size={14} />
+                Create Load Balancer
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Table */}
         <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur overflow-hidden">
@@ -609,15 +626,15 @@ export function LoadBalancersList() {
         albDisabledReason={
           provisioningAlb
             ? `"${provisioningAlb.name}" is still provisioning.`
-            : hasAlb
-              ? "You already have an Application Load Balancer."
+            : quotaReached
+              ? `Load Balancer quota reached (${MAX_LBS}).`
               : undefined
         }
         nlbDisabledReason={
           provisioningNlb
             ? `"${provisioningNlb.name}" is still provisioning.`
-            : hasNlb
-              ? "You already have a Network Load Balancer."
+            : quotaReached
+              ? `Load Balancer quota reached (${MAX_LBS}).`
               : undefined
         }
       />
@@ -710,7 +727,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
+    <div className="flex-1 min-w-[140px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
       <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconBg}`}>
         {icon}
       </div>

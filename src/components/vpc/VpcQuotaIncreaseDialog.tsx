@@ -9,10 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMyManager } from "@/hooks/useMyManager";
 import { ManagerDisplay } from "@/components/common/ManagerDisplay";
-// import {
-//   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-// } from "@/components/ui/select";
-// import { ManagerOption } from "@/utils/myVMs.utils";
 
 interface Props {
     open: boolean;
@@ -38,7 +34,7 @@ interface Props {
 
     onSubmit: (approverEmail: string) => void;
 }
-
+const MAX_VPC_QUOTA = 10;
 export function VpcQuotaIncreaseDialog({
     open, onOpenChange, currentMaxVpcs, usedVpcs,
     requestedquota, setrequestedquota, reason, setreason,
@@ -55,9 +51,36 @@ export function VpcQuotaIncreaseDialog({
         : selectedSuperAdmin;
 
     // Submit is blocked if manager hasn't resolved yet or no email selected
-    const canSubmit = !isMAxREached && !submitquota && !managerLoading && !!managerEmail.trim();
+    const canSubmit =
+        !isMAxREached &&
+        !submitquota &&
+        !managerLoading &&
+        !!managerEmail.trim() &&
+        requestedquota > currentMaxVpcs &&
+        requestedquota <= MAX_VPC_QUOTA &&
+        !quotaError &&
+        !!reason.trim();
+    const reasonError =
+        touched && !reason.trim()
+            ? "Reason is required"
+            : "";
+    const resetForm = () => {
+        setrequestedquota(0);
+        setreason("");
+        setQuotaError("");
+        setTouched(false);
+        setSelectedSuperAdmin("");
+    };
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+            open={open}
+            onOpenChange={(open) => {
+                if (!open) {
+                    resetForm();
+                }
+                onOpenChange(open);
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Request VPC Quota Increase</DialogTitle>
@@ -69,14 +92,20 @@ export function VpcQuotaIncreaseDialog({
                 <div className="space-y-4 py-2">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="text-muted-foreground text-xs">Current Quota</Label>
+                            <Label className="text-muted-foreground text-xs">
+                                Current Quota
+                            </Label>
                             <p className="text-lg font-semibold">
                                 {currentMaxVpcs} VPCs
                             </p>
-
                             <p className="text-xs text-muted-foreground">
                                 {usedVpcs} VPC(s) in use
                             </p>
+                            {isMAxREached && (
+                                <p className="text-sm text-red-500 mt-1">
+                                    {`Maximum VPC quota limit (${MAX_VPC_QUOTA}) already reached.`}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-1">
@@ -84,9 +113,9 @@ export function VpcQuotaIncreaseDialog({
                             <Input
                                 id="requested-quota"
                                 type="number"
+                                min={currentMaxVpcs + 1}
+                                max={MAX_VPC_QUOTA}
                                 className={quotaError ? "border-red-500" : ""}
-                                min="0"
-                                max="50"
                                 value={requestedquota === 0 ? "" : requestedquota}
                                 onChange={(e) => {
                                     const value = e.target.value;
@@ -101,11 +130,25 @@ export function VpcQuotaIncreaseDialog({
                                         numericValue = Number(value.replace(/^0+/, ""));
                                     }
                                     setrequestedquota(numericValue);
-                                    if (currentMaxVpcs >= 50) {
-                                        setQuotaError("Maximum VPC quota limit (50) already reached");
+                                    if (currentMaxVpcs >= MAX_VPC_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum VPC quota limit (${MAX_VPC_QUOTA}) already reached`
+                                        );
                                         return;
                                     }
-                                    setQuotaError(numericValue <= currentMaxVpcs ? `New limit must be greater than ${currentMaxVpcs}` : "");
+                                    if (numericValue <= currentMaxVpcs) {
+                                        setQuotaError(
+                                            `New limit must be greater than ${currentMaxVpcs}`
+                                        );
+                                        return;
+                                    }
+                                    if (numericValue > MAX_VPC_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum allowed quota is ${MAX_VPC_QUOTA}`
+                                        );
+                                        return;
+                                    }
+                                    setQuotaError("");
                                 }}
                             />
                             {touched && quotaError && <p className="text-sm text-red-500">{quotaError}</p>}
@@ -121,8 +164,17 @@ export function VpcQuotaIncreaseDialog({
                             rows={3}
                             placeholder="Explain why you need additional VPC quota..."
                             value={reason}
-                            onChange={(e) => setreason(e.target.value)}
+                            onChange={(e) => {
+                                setTouched(true);
+                                setreason(e.target.value);
+                            }}
                         />
+
+                        {reasonError && (
+                            <p className="text-sm text-red-500">
+                                {reasonError}
+                            </p>
+                        )}
                     </div>
 
                     <ManagerDisplay
@@ -138,9 +190,26 @@ export function VpcQuotaIncreaseDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button
-                        onClick={() => onSubmit(managerEmail)}
+                        variant="outline"
+                        onClick={() => {
+                            resetForm();
+                            onOpenChange(false);
+                        }}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        onClick={() => {
+                            setTouched(true);
+                            if (!reason.trim()) return;
+                            if (quotaError) return;
+                            if (requestedquota <= currentMaxVpcs) return;
+                            if (requestedquota > MAX_VPC_QUOTA) return;
+                            onSubmit(managerEmail);
+                            resetForm();
+                        }}
                         disabled={!canSubmit}
                     >
                         {submitquota ? "Submitting..." : "Submit Request"}

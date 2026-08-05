@@ -223,6 +223,19 @@ export async function retryTerminateVpcRequestApi(requestId: string): Promise<vo
   );
 }
 
+export async function retryEKSProvisionApi(requestId: string ): Promise<void> {
+  await apiClient.post<ApiResponse<void>>(
+    env.eksClusterService,
+    `/eks/${requestId}/retry`
+  );
+}
+
+export async function retryEKSTerminateApi(requestId: string ): Promise<void> {
+  await apiClient.post<ApiResponse<void>>(
+    env.eksClusterService,
+    `/eks/${requestId}/retry-terminate`
+  );
+}
 // ── Delete VM request ────────────────────────────────────────────────────────
 export async function deleteVMRequestApi(requestId: string): Promise<ApiResponse<void>> {
   return await apiClient.delete<ApiResponse<void>>(
@@ -241,6 +254,21 @@ export async function fetchVpcRequestApi(requestId: string): Promise<VMRequest> 
     ...d,
     request_id: d.request_id,
     service: "vpc-service",
+    total_vms: null,
+    vm_count: 0,
+  });
+}
+
+export async function fetchEksRequestApi(requestId: string): Promise<VMRequest> {
+  const response = await apiClient.get<ApiResponse<any>>(
+    env.eksClusterService,
+    `/eks/request/${encodeURIComponent(requestId)}`
+  );
+  const d = response.data;
+  return normalizeVMRequest({
+    ...d,
+    request_id: d.request_id,
+    service: "eks-cluster-service",
     total_vms: null,
     vm_count: 0,
   });
@@ -294,6 +322,21 @@ export async function retryRdsTerminateApi(requestId: string): Promise<void> {
   );
 }
 
+export async function retryRoute53ProvisionApi(requestId: string): Promise<void> {
+  await apiClient.post<ApiResponse<void>>(
+    env.route53Service,
+    `/records/${requestId}/retry`
+  );
+} 
+export async function retryRoute53TerminateApi(requestId: string): Promise<void> {
+  await apiClient.post<ApiResponse<void>>(
+    env.route53Service,
+    `/records/${requestId}/retry-terminate`
+  );
+}
+
+
+
 // vmRequestsApi.ts — add at the bottom
 
 export type RetryApiFn = (requestId: string) => Promise<void>;
@@ -302,13 +345,17 @@ export const RETRY_PROVISION_API: Record<string, RetryApiFn> = {
   'rds-service': retryRdsProvisionApi,
   's3-service': retryBucketProvisionApi,
  'lb-service': retryLbProvisionApi,
- 'vpc-service': retryVpcRequestApi
+ 'vpc-service': retryVpcRequestApi,
+'route53-service': retryRoute53ProvisionApi,
+ "eks-cluster-service": retryEKSProvisionApi,
 };
 
 export const RETRY_TERMINATE_API: Record<string, RetryApiFn> = {
   'rds-service': retryRdsTerminateApi,
   'lb-service': retryLbTerminateApi,
-  'vpc-service': retryTerminateVMRequestApi,
+  'vpc-service': retryTerminateVpcRequestApi,
+  'route53-service': retryRoute53TerminateApi,
+  "eks-cluster-service": retryEKSTerminateApi,
   's3-service': retryBucketDestroyApi,
 };
 

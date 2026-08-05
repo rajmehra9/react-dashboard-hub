@@ -27,6 +27,12 @@ export interface User {
   maxRdsClusters: number;
   maxEksClusters: number;
   maxDnsRecords: number;
+  currentBuckets: number;
+  currentVpcs: number;
+  currentLoadBalancers: number;
+  currentRdsClusters: number;
+  currentEksClusters: number;
+  currentDnsRecords: number;
 }
 
 export interface VMRole {
@@ -241,7 +247,7 @@ export const INSTANCE_TYPES: InstanceTypeOption[] = [
     memory: "32 GB",
     category: "memory",
   },
-   {
+  {
     value: "mac2.metal",
     label: "mac2.metal",
     vcpu: 12,
@@ -564,7 +570,8 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   VPC_DESTROY_REQUESTED: "Requested VPC Deletion",
   VPC_DESTROYED: "VPC Terminated",
   VPC_DESTROYED_FAILED: "VPC Termination Failed",
-
+  VPC_RETRY_REQUESTED: "Retried VPC Request",
+  VPC_TERMINATE_RETRY_REQUESTED: "Retried VPC Terminate",
 
   FOLDER_CREATED: "Created Folder in S3 Bucket",
   FOLDER_CREATE_FAILED: "Folder Creation Failed",
@@ -594,6 +601,10 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   EKS_CLUSTER_REQUEST_SUBMITTED: "Submitted EKS Cluster Request",
   EKS_CLUSTER_DESTROY_REQUESTED: "Requested EKS Cluster Termination",
   EKS_CLUSTER_CREATION_FAILED: "EKS Cluster Creation Failed",
+  EKS_CLUSTER_RETRY_REQUESTED: "EKS Cluster Retry Requested",
+  EKS_CLUSTER_TERMINATE_RETRY_REQUESTED:"EKS Cluster Terminate Retry Requested",
+  EKS_CLUSTER_RETRY_FAILED:"EkS Cluster Retry Failed",
+  EKS_CLUSTER_RETRY_TERMINATE_FAILED:"EKS Cluster Retry Terminate Failed",
 
   RDS_DESTROY_COMPLETED: "RDS Cluster Terminated",
   RDS_DESTROY_REQUESTED: "Requested RDS Cluster Termination",
@@ -625,6 +636,10 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   S3_QUOTA_REQUEST_APPROVED: "Approved S3 Bucket Quota Increase",
   S3_QUOTA_REQUEST_REJECTED: "Rejected S3 Bucket Quota Increase",
 
+  ROUTE53_QUOTA_REQUEST_SUBMITTED: "Route53 Quota Increase Request",
+  ROUTE53_QUOTA_REQUEST_APPROVED: "Approved Route53 Quota Increase",
+  ROUTE53_QUOTA_REQUEST_REJECTED: "Rejected Route53 Quota Increase",
+
   LB_REQUEST_SUBMITTED: "Submitted LB Request",
   LB_REQUEST_FAILED: "LB Request Failed",
   LB_CREATED: "Provisioned Load Balancer",
@@ -632,6 +647,8 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   LB_DESTROY_REQUESTED: "Requested LB Destroy",
   LB_DESTROYED: "Destroyed Load Balancer",
   LB_DESTROYED_FAILED: "LB Destroy Failed",
+  LB_RETRY_PROVISION_REQUESTED: "Requested LB Provision Retry",
+  LB_RETRY_TERMINATE_REQUESTED: "Requested LB Terminate Retry",
 
   DNS_RECORD_CREATED: "DNS Provisioned",
   DNS_RECORD_DELETED: "DNS Terminated",
@@ -639,7 +656,10 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   DNS_REQUEST_SUBMITTED: "Submitted DNS Request",
   DNS_DESTROY_FAILED: "DNS Termination Failed",
   DNS_CREATION_FAILED: "DNS  Creation Failed",
-
+  DNS_RETRY_REQUESTED: 'Retried DNS Request',
+  DNS_RETRY_FAILED: 'DNS Retry Failed',
+  DNS_TERMINATE_RETRY_REQUESTED:'DNS Terminate Requested',
+  DNS_TERMINATE_RETRY_FAILED: 'DNS Terminate Failed',
 };
 
 export const ROLE_NAMES = [

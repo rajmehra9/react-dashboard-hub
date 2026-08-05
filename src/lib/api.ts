@@ -84,7 +84,8 @@ class ApiClient {
 
   async get<T>(baseUrl: string, path: string, params?: Record<string, string>): Promise<T> {
     try {
-      const response = await axios.get<T>(`${baseUrl}${path}`, { params });
+      const headers = await this.getAuthHeader();
+      const response = await axios.get<T>(`${baseUrl}${path}`, { params, headers });
       return response.data;
     } catch (error: any) {
       this.handleAxiosError(error);
@@ -93,7 +94,8 @@ class ApiClient {
 
   async post<T>(baseUrl: string, path: string, body?: unknown): Promise<T> {
     try {
-      const response = await axios.post<T>(`${baseUrl}${path}`, body);
+      const headers = await this.getAuthHeader();
+      const response = await axios.post<T>(`${baseUrl}${path}`, body, { headers });
       return response.data;
     } catch (error: any) {
       this.handleAxiosError(error);
@@ -102,7 +104,8 @@ class ApiClient {
 
   async patch<T>(baseUrl: string, path: string, body?: unknown): Promise<T> {
     try {
-      const response = await axios.patch<T>(`${baseUrl}${path}`, body);
+      const headers = await this.getAuthHeader();
+      const response = await axios.patch<T>(`${baseUrl}${path}`, body, { headers });
       return response.data;
     } catch (error: any) {
       this.handleAxiosError(error);
@@ -111,7 +114,8 @@ class ApiClient {
 
   async put<T>(baseUrl: string, path: string, body?: unknown): Promise<T> {
     try {
-      const response = await axios.put<T>(`${baseUrl}${path}`, body);
+      const headers = await this.getAuthHeader();
+      const response = await axios.put<T>(`${baseUrl}${path}`, body, { headers });
       return response.data;
     } catch (error: any) {
       this.handleAxiosError(error);
@@ -120,7 +124,8 @@ class ApiClient {
 
   async delete<T>(baseUrl: string, path: string): Promise<T> {
     try {
-      const response = await axios.delete<T>(`${baseUrl}${path}`);
+      const headers = await this.getAuthHeader();
+      const response = await axios.delete<T>(`${baseUrl}${path}`, { headers });
       return response.data;
     } catch (error: any) {
       this.handleAxiosError(error);
@@ -129,7 +134,8 @@ class ApiClient {
 
   async download(baseUrl: string, path: string, fileName: string): Promise<void> {
     try {
-      const response = await axios.get(`${baseUrl}${path}`, { responseType: 'blob' });
+      const headers = await this.getAuthHeader();
+      const response = await axios.get(`${baseUrl}${path}`, { responseType: 'blob', headers });
       const blobUrl = URL.createObjectURL(response.data);
       const a = document.createElement('a');
       a.href = blobUrl;

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDialog } from "@/components/ui/dialog-context";
 import { Database, Lock, RefreshCw, Search, Trash2, History, Monitor, ArrowUpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader } from "@/components/common/Loader";
@@ -102,24 +103,23 @@ export function BucketsTable({
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon={<Database size={18} />} value={stats.total} label="Total Buckets" color="text-primary bg-primary/10" />
-        <StatCard icon={<Lock size={18} />} value={stats.encrypted} label="Encrypted" color="text-success bg-success/10" />
-        <StatCard icon={<History size={18} />} value={stats.versioned} label="Versioned" color="text-cyan-400 bg-cyan-400/10" />
-        <div className="border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors rounded-lg p-4 flex items-center justify-between">
+      <div className="flex flex-wrap gap-3">
+        <StatCard icon={<Database className="h-4 w-4" />} value={stats.total} label="Total Buckets" color="text-primary bg-primary/10" />
+        <StatCard icon={<Lock className="h-4 w-4" />} value={stats.encrypted} label="Encrypted" color="text-success bg-success/10" />
+        <StatCard icon={<History className="h-4 w-4" />} value={stats.versioned} label="Versioned" color="text-cyan-400 bg-cyan-400/10" />
+        <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <Monitor className="h-4 w-4 text-primary" />
             </div>
 
             <div>
-              <div className="text-xl font-semibold">
+              <p className="text-2xl font-bold text-foreground leading-tight">
                 {stats.remainingQuota}
-              </div>
-
-              <div className="text-xs text-muted-foreground">
+              </p>
+              <p className="text-xs text-muted-foreground">
                 Quota Remaining
-              </div>
+              </p>
             </div>
           </div>
 
@@ -136,37 +136,42 @@ export function BucketsTable({
       </div>
 
       {/* Search + actions */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, region, or request ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-background/50"
-          />
-        </div>
-        <Button
-          variant="outline"
-          onClick={handleRefresh}
-          disabled={refreshing || loading}
-          className="h-9 w-9 p-0"
-          tooltip="Refresh"
-        >
-          <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
-        </Button>
-        <Button
-          onClick={() => navigate("/aws/s3/create")}
-          disabled={hasReachedQuota}
-          tooltip={
-            hasReachedQuota
-              ? `Bucket quota reached (${MAX_BUCKETS}). Request a quota increase.`
-              : undefined
-          }
-        >
-          + Create Bucket
-        </Button>
-      </div>
+      <Card className="sticky top-16 z-30 glass-panel backdrop-blur border-border/50 p-0">
+        <CardContent className="py-0 px-0">
+          <div className="flex items-center gap-3 p-4 px-6">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, region, or request ID..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 bg-background/50"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full shrink-0"
+              onClick={handleRefresh}
+              disabled={refreshing || loading}
+            >
+              <RefreshCw size={14} className={refreshing || loading ? "animate-spin" : ""} />
+            </Button>
+            <Button
+              onClick={() => navigate("/aws/s3/create")}
+              disabled={hasReachedQuota}
+              className="bg-primary hover:bg-primary/90 text-white gap-1.5 shrink-0"
+              tooltip={
+                hasReachedQuota
+                  ? `Bucket quota reached (${MAX_BUCKETS}). Request a quota increase.`
+                  : undefined
+              }
+            >
+              + Create Bucket
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="rounded-lg border border-border/50 bg-card/50 backdrop-blur overflow-hidden">
         <div className="overflow-x-auto">
@@ -343,11 +348,11 @@ export function BucketsTable({
 
 function StatCard({ icon, value, label, color }: { icon: React.ReactNode; value: number; label: string; color: string }) {
   return (
-    <div className="border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors rounded-lg p-4 flex items-center gap-3">
-      <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${color}`}>{icon}</div>
+    <div className="flex-1 min-w-[140px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 ${color}`}>{icon}</div>
       <div>
-        <div className="text-xl font-semibold">{value}</div>
-        <div className="text-xs text-muted-foreground">{label}</div>
+        <p className="text-2xl font-bold text-foreground leading-tight">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </div>
   );

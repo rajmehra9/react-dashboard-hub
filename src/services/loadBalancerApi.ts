@@ -49,7 +49,7 @@ export interface LoadBalancer {
 
 export async function fetchLoadBalancers(): Promise<LoadBalancer[]> {
   const response = await apiClient.get<{ data: LoadBalancer[] }>(
-    env.lbService,
+    env.loadBalancer,
     "/lb-service/api/load-balancers"
   );
 
@@ -58,7 +58,7 @@ export async function fetchLoadBalancers(): Promise<LoadBalancer[]> {
 
 export async function fetchLoadBalancerByName(name: string): Promise<LoadBalancer | null> {
   const response = await apiClient.get<{ data?: LoadBalancer | null }>(
-    env.lbService,
+    env.loadBalancer,
     `/lb-service/api/load-balancers/${encodeURIComponent(name)}`
   );
 
@@ -67,14 +67,14 @@ export async function fetchLoadBalancerByName(name: string): Promise<LoadBalance
 
 export async function deleteLoadBalancer(id: string): Promise<void> {
   await apiClient.delete<void>(
-    env.lbService,
+    env.loadBalancer,
     `/lb-service/api/load-balancers/${encodeURIComponent(id)}`
   );
 }
 
 export async function createLoadBalancer(payload: any): Promise<any> {
   const response = await apiClient.post<{ data: any }>(
-    env.lbService,
+    env.loadBalancer,
     "/lb-service/api/load-balancers",
     payload
   );
@@ -84,7 +84,7 @@ export async function createLoadBalancer(payload: any): Promise<any> {
 
 export async function updateLoadBalancer(id: string, payload: any): Promise<any> {
   const response = await apiClient.put<{ data: any }>(
-    env.lbService,
+    env.loadBalancer,
     `/lb-service/api/load-balancers/${encodeURIComponent(id)}`,
     payload
   );      

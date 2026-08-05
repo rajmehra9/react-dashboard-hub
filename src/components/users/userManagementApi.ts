@@ -8,11 +8,7 @@ import type { User, CategoryType } from "@/types";
 import type {
   RawUserApiResponse,
   ApiResponse,
-  // CreateUserResponse,
   UpdateUserResponse,
-  DeleteUserResponse,
-  // ReinviteUserResponse,
-  ToggleUserActiveResponse,
 } from "@/types/api";
 import type { Role } from "@/types/index";
 
@@ -33,7 +29,7 @@ export function normalizeUser(u: RawUserApiResponse): User {
   }
 
   // Type guard for role
-  const validRoles: Role[] = ['SuperAdmin', 'SplunkOps.Admin', 'SplunkOps.User'];
+  const validRoles: Role[] = ['SuperAdmin', 'SplunkOps.Admin', 'SplunkOps.User', 'SplunkOps.Auditor', 'SplunkOps.Stakeholder'];
   const role: Role = validRoles.includes(u.role as Role) ? (u.role as Role) : 'SplunkOps.User';
 
   // Type guard for status
@@ -50,16 +46,22 @@ export function normalizeUser(u: RawUserApiResponse): User {
     role,
     status,
     maxVMs: u.max_vms,
-    maxBuckets: (u as any).max_buckets ?? 0,
-    maxVpcs: (u as any).max_vpcs ?? 0,
-    maxLoadBalancers: (u as any).max_load_balancers ?? 0,
-    maxRdsClusters: (u as any).max_rds_clusters ?? 0,
-    maxEksClusters: (u as any).max_eks_clusters ?? 0,
-    maxDnsRecords: (u as any).max_dns_records ?? 0,
     profile_image_url: u.profile_image,
     activeVMs: u.current_vms ?? 0,
     provisioningVMs: u.provisioning_vms ?? 0,
     currentVMs: u.current_vms ?? 0,
+    maxVpcs: u.max_vpcs ?? 0,
+    maxLoadBalancers: u.max_load_balancers ?? 0,
+    maxDnsRecords: u.max_dns_records ?? 0,
+    maxRdsClusters: u.max_rds_clusters ?? 0,
+    maxEksClusters: u.max_eks_clusters ?? 0,
+    maxBuckets: u.max_buckets ?? 0,
+    currentBuckets: u.current_buckets ?? 0,
+    currentVpcs: u.current_vpcs ?? 0,
+    currentLoadBalancers: u.current_load_balancers ?? 0,
+    currentRdsClusters: u.current_rds_clusters ?? 0,
+    currentEksClusters: u.current_eks_clusters ?? 0,
+    currentDnsRecords: u.current_dns_records ?? 0,
     allowedInstanceTypes: u.allowed_instance_types ?? [],
     allowedCategories: categories,
     timeZone: u.time_zone ?? "",
@@ -107,6 +109,12 @@ export interface UpdateUserPayload {
   displayName?: string;
   role?: string;
   maxVMs?: number;
+  maxBuckets?: number;
+  maxVpcs?: number;
+  maxLoadBalancers?: number;
+  maxEksClusters?: number;
+  maxDnsRecords?: number;
+  maxRdsClusters?: number;
   allowedInstanceTypes?: string[];
   allowedCategories?: number[];
   adminEmail?: string;

@@ -34,8 +34,8 @@ export function useActiveRequests() {
   return useQuery({
     queryKey: QUERY_KEYS.activeRequests,
     queryFn: fetchActiveRequestsApi,
-    staleTime: 5_000,
-    refetchInterval: 10_000,
+    staleTime: 2_000,
+    refetchInterval: 3_000,
   });
 }
 
@@ -45,7 +45,7 @@ export function useRequestDetails(requestId: string | null, service?: string) {
     queryKey: QUERY_KEYS.requestDetails(requestId || '', service),
     queryFn: () => fetchRequestDetailsApi(requestId!, service),
     enabled: !!requestId,
-    staleTime: 3_000,
+    staleTime: 2_000,
     refetchInterval: (query) =>
       query.state.data && TERMINAL_REQUEST_STATUSES.has(query.state.data.status)
         ? false
@@ -68,10 +68,10 @@ export function useRequestLogs(requestId: string | null, service?: string) {
 export function useClearRequestLogs() {
   const queryClient = useQueryClient();
   const { alert } = useDialog();
-  const { setActiveRequest, triggerRequestsRefresh } = useAppStore();
+  const { setActiveRequest, triggerRequestsRefresh, activeService } = useAppStore();
 
   return useMutation({
-    mutationFn: clearRequestLogsApi,
+    mutationFn: (requestId: string) => clearRequestLogsApi(requestId, activeService ?? undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.activeRequests });
       setActiveRequest(null);

@@ -125,12 +125,12 @@ export function VpcDetails({
     <div className="space-y-4">
       {!embedded && (
         <Header
-          title={`VPC ${vpc.name}`}
-          subtitle={`Details for ${vpc.id}`}
+          title="VPCs"
+          subtitle="Virtual networks for securely hosting cloud resources."
         />
       )}
       
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-6 pb-6 pt-2">
         {/* Breadcrumb */}
         {!embedded && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -144,7 +144,7 @@ export function VpcDetails({
         {!embedded && (
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold">
-              {vpc.id} / {vpc.name}
+              {vpc.name}
             </h1>
           </div>
         )}

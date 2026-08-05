@@ -9,10 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMyManager } from "@/hooks/useMyManager";
 import { ManagerDisplay } from "@/components/common/ManagerDisplay";
-// import {
-//   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-// } from "@/components/ui/select";
-// import { ManagerOption } from "@/utils/myVMs.utils";
 
 interface Props {
     open: boolean;
@@ -38,7 +34,7 @@ interface Props {
 
     onSubmit: (approverEmail: string) => void;
 }
-
+const MAX_EKS_QUOTA = 10;
 export function EksQuotaIncreaseDialog({
     open, onOpenChange, currentMaxEksClusters, usedEksClusters,
     requestedquota, setrequestedquota, reason, setreason,
@@ -55,9 +51,36 @@ export function EksQuotaIncreaseDialog({
         : selectedSuperAdmin;
 
     // Submit is blocked if manager hasn't resolved yet or no email selected
-    const canSubmit = !isMAxREached && !submitquota && !managerLoading && !!managerEmail.trim();
+    const canSubmit =
+        !isMAxREached &&
+        !submitquota &&
+        !managerLoading &&
+        !!managerEmail.trim() &&
+        requestedquota > currentMaxEksClusters &&
+        requestedquota <= MAX_EKS_QUOTA &&
+        !quotaError &&
+        !!reason.trim();
+    const reasonError =
+        touched && !reason.trim()
+            ? "Reason is required"
+            : "";
+    const resetForm = () => {
+        setrequestedquota(0);
+        setreason("");
+        setQuotaError("");
+        setTouched(false);
+        setSelectedSuperAdmin("");
+    };
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog
+            open={open}
+            onOpenChange={(open) => {
+                if (!open) {
+                    resetForm();
+                }
+                onOpenChange(open);
+            }}
+        >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Request EKS Cluster Quota Increase</DialogTitle>
@@ -69,7 +92,10 @@ export function EksQuotaIncreaseDialog({
                 <div className="space-y-4 py-2">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <Label className="text-muted-foreground text-xs">Current Quota</Label>
+                            <Label className="text-muted-foreground text-xs">
+                                Current Quota
+                            </Label>
+
                             <p className="text-lg font-semibold">
                                 {currentMaxEksClusters} EKS Clusters
                             </p>
@@ -77,16 +103,21 @@ export function EksQuotaIncreaseDialog({
                             <p className="text-xs text-muted-foreground">
                                 {usedEksClusters} Cluster(s) in use
                             </p>
-                        </div>
 
+                            {isMAxREached && (
+                                <p className="text-sm text-red-500 mt-1">
+                                    {`Maximum EKS quota limit (${MAX_EKS_QUOTA}) already reached.`}
+                                </p>
+                            )}
+                        </div>
                         <div className="space-y-1">
                             <Label htmlFor="requested-quota">New limit</Label>
                             <Input
                                 id="requested-quota"
                                 type="number"
+                                min={currentMaxEksClusters + 1}
+                                max={MAX_EKS_QUOTA}
                                 className={quotaError ? "border-red-500" : ""}
-                                min="0"
-                                max="50"
                                 value={requestedquota === 0 ? "" : requestedquota}
                                 onChange={(e) => {
                                     const value = e.target.value;
@@ -101,11 +132,25 @@ export function EksQuotaIncreaseDialog({
                                         numericValue = Number(value.replace(/^0+/, ""));
                                     }
                                     setrequestedquota(numericValue);
-                                    if (currentMaxEksClusters >= 50) {
-                                        setQuotaError("Maximum EKS quota limit (50) already reached");
+                                    if (currentMaxEksClusters >= MAX_EKS_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum EKS quota limit (${MAX_EKS_QUOTA}) already reached`
+                                        );
                                         return;
                                     }
-                                    setQuotaError(numericValue <= currentMaxEksClusters ? `New limit must be greater than ${currentMaxEksClusters}` : "");
+                                    if (numericValue <= currentMaxEksClusters) {
+                                        setQuotaError(
+                                            `New limit must be greater than ${currentMaxEksClusters}`
+                                        );
+                                        return;
+                                    }
+                                    if (numericValue > MAX_EKS_QUOTA) {
+                                        setQuotaError(
+                                            `Maximum allowed quota is ${MAX_EKS_QUOTA}`
+                                        );
+                                        return;
+                                    }
+                                    setQuotaError("");
                                 }}
                             />
                             {touched && quotaError && <p className="text-sm text-red-500">{quotaError}</p>}
@@ -121,8 +166,17 @@ export function EksQuotaIncreaseDialog({
                             rows={3}
                             placeholder="Explain why you need additional EKS cluster quota..."
                             value={reason}
-                            onChange={(e) => setreason(e.target.value)}
+                            onChange={(e) => {
+                                setTouched(true);
+                                setreason(e.target.value);
+                            }}
                         />
+
+                        {reasonError && (
+                            <p className="text-sm text-red-500">
+                                {reasonError}
+                            </p>
+                        )}
                     </div>
 
                     <ManagerDisplay
@@ -138,9 +192,17 @@ export function EksQuotaIncreaseDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>Cancel</Button>
                     <Button
-                        onClick={() => onSubmit(managerEmail)}
+                        onClick={() => {
+                            setTouched(true);
+                            if (!reason.trim()) return;
+                            if (quotaError) return;
+                            if (requestedquota <= currentMaxEksClusters) return;
+                            if (requestedquota > MAX_EKS_QUOTA) return;
+                            onSubmit(managerEmail);
+                            resetForm();
+                        }}
                         disabled={!canSubmit}
                     >
                         {submitquota ? "Submitting..." : "Submit Request"}

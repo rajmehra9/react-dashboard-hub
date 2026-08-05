@@ -9,31 +9,33 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useMyManager } from "@/hooks/useMyManager";
 import { ManagerDisplay } from "@/components/common/ManagerDisplay";
-
 interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    currentMaxBuckets: number;
-    usedBuckets: number;
+
+    currentMaxRecords: number;
+    usedRecords: number;
+
     requestedquota: number;
     setrequestedquota: (v: number) => void;
+
     reason: string;
     setreason: (v: string) => void;
-    // mEmail: string;
-    // setMEmail: (v: string) => void;
+
     submitquota: boolean;
     quotaError: string;
     setQuotaError: (v: string) => void;
+
     touched: boolean;
     setTouched: (v: boolean) => void;
+
     isMAxREached: boolean;
-    // managerOptions: ManagerOption[];
-    // managersLoading: boolean;
+
     onSubmit: (approverEmail: string) => void;
 }
-const MAX_S3_QUOTA = 10;
-export function S3QuotaIncreaseDialog({
-    open, onOpenChange, currentMaxBuckets, usedBuckets,
+const MAX_ROUTE53_QUOTA = 10;
+export function Route53QuotaIncreaseDialog({
+    open, onOpenChange, currentMaxRecords, usedRecords,
     requestedquota, setrequestedquota, reason, setreason,
     submitquota, quotaError, setQuotaError, touched, setTouched,
     isMAxREached, onSubmit,
@@ -53,8 +55,8 @@ export function S3QuotaIncreaseDialog({
         !submitquota &&
         !managerLoading &&
         !!managerEmail.trim() &&
-        requestedquota > currentMaxBuckets &&
-        requestedquota <= MAX_S3_QUOTA &&
+        requestedquota > currentMaxRecords &&
+        requestedquota <= MAX_ROUTE53_QUOTA &&
         !quotaError &&
         !!reason.trim();
     const reasonError =
@@ -80,9 +82,9 @@ export function S3QuotaIncreaseDialog({
         >
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Request S3 Bucket Quota Increase</DialogTitle>
+                    <DialogTitle>Request Route53 Record Quota Increase</DialogTitle>
                     <DialogDescription>
-                        Submit a request to increase your S3 bucket quota. An admin will review and respond.
+                        Submit a request to increase your Route53 DNS Record quota. An admin will review and respond.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -93,14 +95,14 @@ export function S3QuotaIncreaseDialog({
                                 Current Quota
                             </Label>
                             <p className="text-lg font-semibold">
-                                {currentMaxBuckets} Buckets
+                                {currentMaxRecords} Records
                             </p>
                             <p className="text-xs text-muted-foreground">
-                                {usedBuckets} bucket(s) in use
+                                {usedRecords} Record(s) in use
                             </p>
                             {isMAxREached && (
                                 <p className="text-sm text-red-500 mt-1">
-                                    {`Maximum S3 bucket quota limit (${MAX_S3_QUOTA}) already reached.`}
+                                    {`Maximum Route53 record quota limit (${MAX_ROUTE53_QUOTA}) already reached.`}
                                 </p>
                             )}
                         </div>
@@ -110,8 +112,8 @@ export function S3QuotaIncreaseDialog({
                             <Input
                                 id="requested-quota"
                                 type="number"
-                                min={currentMaxBuckets + 1}
-                                max={MAX_S3_QUOTA}
+                                min={currentMaxRecords + 1}
+                                max={MAX_ROUTE53_QUOTA}
                                 className={quotaError ? "border-red-500" : ""}
                                 value={requestedquota === 0 ? "" : requestedquota}
                                 onChange={(e) => {
@@ -127,21 +129,21 @@ export function S3QuotaIncreaseDialog({
                                         numericValue = Number(value.replace(/^0+/, ""));
                                     }
                                     setrequestedquota(numericValue);
-                                    if (currentMaxBuckets >= MAX_S3_QUOTA) {
+                                    if (currentMaxRecords >= MAX_ROUTE53_QUOTA) {
                                         setQuotaError(
-                                            `Maximum S3 bucket quota limit (${MAX_S3_QUOTA}) already reached`
+                                            `Maximum Route53 record quota limit (${MAX_ROUTE53_QUOTA}) already reached`
                                         );
                                         return;
                                     }
-                                    if (numericValue <= currentMaxBuckets) {
+                                    if (numericValue <= currentMaxRecords) {
                                         setQuotaError(
-                                            `New limit must be greater than ${currentMaxBuckets}`
+                                            `New limit must be greater than ${currentMaxRecords}`
                                         );
                                         return;
                                     }
-                                    if (numericValue > MAX_S3_QUOTA) {
+                                    if (numericValue > MAX_ROUTE53_QUOTA) {
                                         setQuotaError(
-                                            `Maximum allowed quota is ${MAX_S3_QUOTA}`
+                                            `Maximum allowed quota is ${MAX_ROUTE53_QUOTA}`
                                         );
                                         return;
                                     }
@@ -159,14 +161,13 @@ export function S3QuotaIncreaseDialog({
                         <Textarea
                             id="reason"
                             rows={3}
-                            placeholder="Explain why you need additional S3 bucket quota..."
+                            placeholder="Explain why you need additional Route53 DNS record quota..."
                             value={reason}
                             onChange={(e) => {
                                 setTouched(true);
                                 setreason(e.target.value);
                             }}
                         />
-
                         {reasonError && (
                             <p className="text-sm text-red-500">
                                 {reasonError}
@@ -201,8 +202,8 @@ export function S3QuotaIncreaseDialog({
                             setTouched(true);
                             if (!reason.trim()) return;
                             if (quotaError) return;
-                            if (requestedquota <= currentMaxBuckets) return;
-                            if (requestedquota > MAX_S3_QUOTA) return;
+                            if (requestedquota <= currentMaxRecords) return;
+                            if (requestedquota > MAX_ROUTE53_QUOTA) return;
                             onSubmit(managerEmail);
                             resetForm();
                         }}

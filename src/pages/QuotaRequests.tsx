@@ -19,7 +19,8 @@ import { getClientIp } from "@/utils/getClientIP";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useMsal } from "@azure/msal-react";
 import { loginRequest } from "@/auth/msalConfig";
-import {env} from "@/lib/env";
+import { env } from "@/lib/env";
+import { jwtDecode } from "jwt-decode";
 
 interface QuotaRequest {
   id: string;
@@ -236,16 +237,53 @@ export default function QuotaRequests() {
   const handleEmailApprove = async (jwtToken: string) => {
     try {
       const authToken = localStorage.getItem("token");
-      const res = await fetch(
-        `${API_VM_URL}/api/vms/quota-request/approve?token=${encodeURIComponent(jwtToken)}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            "x-client-ip": (await getClientIp()) || "",
-          },
-        }
-      );
+      const decoded: any = jwtDecode(jwtToken);
+
+      let endpoint = "";
+
+      switch (decoded.service?.toLowerCase()) {
+        case "s3":
+          endpoint =
+            `${API_VM_URL}/api/s3-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "vpc":
+          endpoint =
+            `${API_VM_URL}/api/vpc-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "lb":
+          endpoint =
+            `${API_VM_URL}/api/lb-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "route53":
+          endpoint =
+            `${API_VM_URL}/api/route53-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "rds":
+          endpoint =
+            `${API_VM_URL}/api/rds-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "eks":
+          endpoint =
+            `${API_VM_URL}/api/eks-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        default:
+          endpoint =
+            `${API_VM_URL}/api/vms/quota-request/approve?token=${encodeURIComponent(jwtToken)}`;
+      }
+
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "x-client-ip": (await getClientIp()) || "",
+        },
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -274,16 +312,51 @@ export default function QuotaRequests() {
   const handleEmailReject = async (jwtToken: string) => {
     try {
       const authToken = localStorage.getItem("token");
-      const res = await fetch(
-        `${API_VM_URL}/api/vms/quota-request/reject?token=${encodeURIComponent(jwtToken)}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            "x-client-ip": (await getClientIp()) || "",
-          },
-        }
-      );
+      const decoded: any = jwtDecode(jwtToken);
+
+      let endpoint = "";
+
+      switch (decoded.service?.toLowerCase()) {
+        case "s3":
+          endpoint =
+            `${API_VM_URL}/api/s3-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "vpc":
+          endpoint =
+            `${API_VM_URL}/api/vpc-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "lb":
+          endpoint =
+            `${API_VM_URL}/api/lb-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "route53":
+          endpoint =
+            `${API_VM_URL}/api/route53-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "rds":
+          endpoint =
+            `${API_VM_URL}/api/rds-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+
+        case "eks":
+          endpoint =
+            `${API_VM_URL}/api/eks-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+          break;
+        default:
+          endpoint =
+            `${API_VM_URL}/api/vms/quota-request/reject?token=${encodeURIComponent(jwtToken)}`;
+      }
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "x-client-ip": (await getClientIp()) || "",
+        },
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -366,6 +439,14 @@ export default function QuotaRequests() {
             : `${API_VM_URL}/api/s3-quota/${reviewDialog.request.id}/reject`;
 
         method = "PUT";
+      }
+      else if (service === "route53") {
+        endpoint =
+          reviewDialog.action === "approved"
+            ? `${API_VM_URL}/api/route53-quota/approve/${reviewDialog.request.id}`
+            : `${API_VM_URL}/api/route53-quota/deny/${reviewDialog.request.id}`;
+
+        method = "POST";
       }
       const response = await fetch(endpoint, {
         method,
@@ -489,6 +570,7 @@ export default function QuotaRequests() {
                       {req.service === "rds" && " RDS Databases"}
                       {req.service === "eks" && " EKS Clusters"}
                       {req.service === "s3" && " S3 Buckets"}
+                      {req.service === "route53" && " DNS Records"}
                     </p>
 
                     <p className="text-sm text-muted-foreground">
@@ -581,7 +663,9 @@ export default function QuotaRequests() {
                           ? "EKS Clusters"
                           : reviewDialog.request?.service === "s3"
                             ? "S3 Buckets"
-                            : "Resources"
+                            : reviewDialog.request?.service === "route53"
+                              ? "DNS Records"
+                              : "Resources"
                 }?`
                 : "Reject quota increase request?"}
             </DialogDescription>

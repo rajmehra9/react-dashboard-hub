@@ -381,7 +381,7 @@ export default function AuditLogs() {
             .join("\n") || "—";
 
         const showTooltip =
-          description.length > 50 ||
+          description.length > 48 ||
           justification.length > 40;
 
         return (
@@ -634,7 +634,7 @@ export default function AuditLogs() {
               <div className="relative flex-1 w-full">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Search by user name, action, target..."
+                  placeholder="Search by user, action, target..."
                   className="pl-9 w-full"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

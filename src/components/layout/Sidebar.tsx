@@ -128,7 +128,7 @@ export function Sidebar() {
             {sidebarOpen && (
               <div className="animate-fade-in">
                 <h1 className="font-semibold text-sidebar-foreground">
-                  SplunkOps
+                  PrudentOps
                 </h1>
                 <p className="text-xs text-muted-foreground">
                   Automation Console

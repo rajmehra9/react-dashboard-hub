@@ -57,9 +57,9 @@ export function RdsDetail() {
         masterUsername: cluster.master_username ?? "",
         port: instance.port ?? cluster.port ?? 5432,
         availabilityZone: instance.availability_zone ?? "—",
-        subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as unknown as string[] : [],
+        subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as string[] : [],
         certificateAuthority: instance.ca_certificate_identifier ?? "",
-        certificateAuthorityDate: String(instance.ca_certificate_expiry ?? ""),
+        certificateAuthorityDate: instance.ca_certificate_expiry ?? "",
       }
     : {
         endpoint: cluster.endpoint ?? "",
@@ -71,7 +71,7 @@ export function RdsDetail() {
         availabilityZone: primaryInstance?.availability_zone ?? "—",
         subnets: primaryInstance?.availability_zone ? [primaryInstance.availability_zone] : [],
         certificateAuthority: primaryInstance?.ca_certificate_identifier ?? "",
-        certificateAuthorityDate: String(cluster.created_at ?? ""),
+        certificateAuthorityDate: cluster.created_at ?? "",
       };
 
   const endpoints = isInstance ? [] : [
@@ -89,8 +89,8 @@ export function RdsDetail() {
   return (
     <div className="space-y-4">
       <Header
-        title={`RDS ${dbIdentifier}`}
-        subtitle={`Details for ${dbIdentifier}`}
+        title="Amazon RDS"
+        subtitle="Managed relational database service — clusters, instances"
       />
 
       <Dialog open={showTokenDialog} onOpenChange={setShowTokenDialog}>
@@ -137,27 +137,14 @@ export function RdsDetail() {
         </DialogContent>
       </Dialog>
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-6 pb-6 pt-2">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Link to="/aws/rds" className="text-primary hover:underline">
             RDS
           </Link>
           <ChevronRight size={14} />
-          {isInstance ? (
-            <>
-              <Link
-                to={`/aws/rds/${cluster.request_id}`}
-                className="text-primary hover:underline"
-              >
-                {cluster.cluster_identifier}
-              </Link>
-              <ChevronRight size={14} />
-              <span>{dbIdentifier}</span>
-            </>
-          ) : (
-            <span>{dbIdentifier}</span>
-          )}
+          <span>{dbIdentifier}</span>
         </div>
 
         {/* Tabs */}
@@ -570,7 +557,7 @@ export function RdsDetail() {
                       />
                       <ConfigField
                         label="Resource ID"
-                        value={String(cluster.resource_id ?? "—")}
+                        value={cluster.resource_id ?? "—"}
                       />
                       <ConfigField
                         label="Cluster storage configuration"
@@ -771,7 +758,7 @@ export function RdsDetail() {
                       value={
                         cluster.kms_key_id ? (
                           <span className="text-primary text-xs">
-                            {String(cluster.kms_key_id)}
+                            {cluster.kms_key_id}
                           </span>
                         ) : (
                           "AWS owned KMS key"

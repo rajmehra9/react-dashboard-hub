@@ -26,7 +26,7 @@ export function DashboardStats({
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
      <StatCard
         title="Active Resources"
-        value={activeResources}
+        value={totalResources}
         subtitle="Across all services & regions"
         icon={Server}
         variant="primary"

@@ -111,6 +111,67 @@ const createListener = (id: number, isAlb: boolean, port = 80): ListenerConfig =
 
 });
 const LB_NAME_REGEX = /^[a-zA-Z0-9-]+$/;
+const DEFAULT_SG_NAME = "splunk-poc-sg";
+const STATIC_SUBNETS_BY_REGION: Record<string, SubnetItem[]> = {
+  "us-east-2": [
+    {
+      id: "subnet-093d40d08c73d4a60",
+      name: "splunk-poc-public-subnet-3",
+      az: "us-east-2c",
+      cidr: "10.0.3.0/24",
+    },
+    {
+      id: "subnet-09edfe5b54b85d2c8",
+      name: "splunk-poc-public-subnet-2",
+      az: "us-east-2b",
+      cidr: "10.0.2.0/24",
+    },
+    {
+      id: "subnet-03dffb510edb7ab4e",
+      name: "splunk-poc-public-subnet-1",
+      az: "us-east-2a",
+      cidr: "10.0.1.0/24",
+    },
+  ],
+  "us-east-1": [
+    {
+      id: "subnet-0012ebab3c854f686",
+      name: "splunk-poc-public-subnet-4",
+      az: "us-east-1c",
+      cidr: "10.0.4.0/24",
+    },
+    {
+      id: "subnet-0e86b2ff8dbb39142",
+      name: "splunk-poc-public-subnet-2",
+      az: "us-east-1a",
+      cidr: "10.0.2.0/24",
+    },
+    {
+      id: "subnet-099455525bf2dcc2a",
+      name: "splunk-poc-public-subnet-5",
+      az: "us-east-1d",
+      cidr: "10.0.5.0/24",
+    },
+    {
+      id: "subnet-0f9f4f1f4d17b998c",
+      name: "Splunk-Poc-Public-Subnet-1",
+      az: "us-east-1e",
+      cidr: "10.0.1.0/24",
+    },
+    {
+      id: "subnet-001dd87543f9c1402",
+      name: "splunk-poc-public-subnet-3",
+      az: "us-east-1b",
+      cidr: "10.0.3.0/24",
+    },
+    {
+      id: "subnet-0f6b10e5760a9e210",
+      name: "splunk-poc-public-subnet-6",
+      az: "us-east-1f",
+      cidr: "10.0.6.0/24",
+    },
+  ],
+};
 
 function validateLbName(value: string): string | null {
   if (!value) return "Load balancer name is required.";
@@ -156,7 +217,6 @@ export function LoadBalancerCreate({ kind }: Props) {
   const [existingLbDialogOpen, setExistingLbDialogOpen] = useState(false);
   const [nameFormatError, setNameFormatError] = useState(false);
   const [justificationError, setJustificationError] = useState(false);
-  const [justificationTouched, setJustificationTouched] = useState(false);
   const [provisioningLb, setProvisioningLb] = useState<import("@/services/lbApi").ProvisioningLbItem | null>(null);
   const [checkingProvisioning, setCheckingProvisioning] = useState(false);
   const [name, setName] = useState("");
@@ -213,6 +273,7 @@ export function LoadBalancerCreate({ kind }: Props) {
   const [reviewIssueOpen, setReviewIssueOpen] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const isJustificationValid = justifications.trim().length >= 20;
   // Integration toggles
   const [cfWafEnabled, setCfWafEnabled] = useState(false);
@@ -307,6 +368,35 @@ export function LoadBalancerCreate({ kind }: Props) {
   })();
 
   useEffect(() => {
+    if (!submitted) return;
+    setJustificationError(justifications.trim().length < 20);
+  }, [justifications, submitted]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    const badListeners = listeners
+      .filter((l) => l.action === "forward" && !l.targetGroups.some((t) => t.group))
+      .map((l) => l.id);
+    setListenerTgError(badListeners);
+  }, [listeners, submitted]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    if (vpc) setVpcError(false);
+  }, [vpc, submitted]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    if (!isAlb || sgs.length > 0) setSgError(false);
+  }, [sgs, submitted]);
+
+  useEffect(() => {
+    if (!submitted) return;
+    const missingSubnet = azs.length < 2 || azs.some((az) => !azSubnets[az]?.subnet);
+    setSubnetError(missingSubnet);
+  }, [azs, azSubnets, submitted]);
+
+  useEffect(() => {
     if (azs.length === 0) return;
     setAzSubnets((prev) => {
       const next = { ...prev };
@@ -380,26 +470,46 @@ export function LoadBalancerCreate({ kind }: Props) {
       setSgOptions(sgRes.securityGroups);
       setTgOptions(tgRes.targetGroups);
       if (sgs.length === 0 && sgRes.securityGroups.length > 0) {
-        const firstSg = sgRes.securityGroups[0].id;
-        setSgs([firstSg]);
-        setSelectedSgId(firstSg);
+        const defaultSg = sgRes.securityGroups.find((sg) => sg.name.toLowerCase() === DEFAULT_SG_NAME.toLowerCase());
+        const selectedSg = defaultSg ? defaultSg.id : sgRes.securityGroups[0].id;
+        setSgs([selectedSg]);
+        setSelectedSgId(selectedSg);
       }
     }).finally(() => setLoadingVpc(false));
   }, [vpc, selectedRegion]);
 
   useEffect(() => {
-    if (!vpc || !selectedRegion || azs.length === 0) return;
-    azs.forEach((az) => {
-      if (subnetMap[az]) return;
-      lbApi.subnets(selectedRegion, vpc).then((res) => {
-        const forAz = res.subnets.filter((s) => s.az === az);
-        setSubnetMap((prev) => ({ ...prev, [az]: forAz }));
-        if (!azSubnets[az]?.subnet && forAz.length === 1) {
-          updateAzSubnet(az, { subnet: forAz[0].id });
+    if (!selectedRegion) {
+      setSubnetMap({});
+      return;
+    }
+
+    const regionSubnets = STATIC_SUBNETS_BY_REGION[selectedRegion] ?? [];
+    const nextSubnetMap = regionSubnets.reduce<Record<string, SubnetItem[]>>((acc, subnet) => {
+      const key = subnet.az;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(subnet);
+      return acc;
+    }, {});
+
+    setSubnetMap(nextSubnetMap);
+
+    setAzSubnets((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      azs.forEach((az) => {
+        const subnetsForAz = nextSubnetMap[az] ?? [];
+        if (!next[az]?.subnet && subnetsForAz.length === 1) {
+          next[az] = getAzSubnetEntry(next[az]);
+          next[az].subnet = subnetsForAz[0].id;
+          changed = true;
         }
-      }).catch(() => { });
+      });
+
+      return changed ? next : prev;
     });
-  }, [azs, vpc, selectedRegion]);
+  }, [azs, selectedRegion]);
 
 
   const toggleAz = (az: string) =>
@@ -478,6 +588,7 @@ export function LoadBalancerCreate({ kind }: Props) {
   };
 
   async function submit() {
+    setSubmitted(true);
     let valid = true;
 
     if (provisioningLb) {
@@ -487,7 +598,6 @@ export function LoadBalancerCreate({ kind }: Props) {
 
     if (relevantExistingLbs.length > 0) {
       setExistingLbDialogOpen(true);
-      alert({ title: "You already have a load balancer under your name.", severity: "error" });
       return;
     }
 
@@ -495,7 +605,6 @@ export function LoadBalancerCreate({ kind }: Props) {
     if (nameValidationError) {
       setNameErrorMsg(nameValidationError);
       if (valid) {
-        alert({ title: nameValidationError, severity: "error" });
         nameInputRef.current?.focus();
         nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -506,25 +615,16 @@ export function LoadBalancerCreate({ kind }: Props) {
 
     if (!vpc) {
       setVpcError(true);
-      if (valid) {
-        alert({ title: "Please select a VPC", severity: "error" });
-        document.getElementById("network-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("network-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     } else {
       setVpcError(false);
     }
 
     const missingSubnet = azs.length < 2 || azs.some((az) => !azSubnets[az]?.subnet);
-    if (azs.length < 2 || missingSubnet) {
+    if (missingSubnet) {
       setSubnetError(true);
-      if (valid) {
-        alert({
-          title: azs.length < 2 ? "Select at least 2 Availability Zones" : "Each selected AZ must have a subnet chosen",
-          severity: "error",
-        });
-        document.getElementById("network-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("network-mapping")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     } else {
       setSubnetError(false);
@@ -532,10 +632,7 @@ export function LoadBalancerCreate({ kind }: Props) {
 
     if (isAlb && sgs.length === 0) {
       setSgError(true);
-      if (valid) {
-        alert({ title: "At least one security group is required", severity: "error" });
-        document.getElementById("security-groups")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("security-groups")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     } else {
       setSgError(false);
@@ -546,10 +643,7 @@ export function LoadBalancerCreate({ kind }: Props) {
       .map((l) => l.id);
     setListenerTgError(badListeners);
     if (badListeners.length > 0) {
-      if (valid) {
-        alert({ title: "Each forward listener must have a target group selected", severity: "error" });
-        document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     }
 
@@ -558,10 +652,7 @@ export function LoadBalancerCreate({ kind }: Props) {
       .map((l) => l.id);
     setPortErrorIds(badPorts);
     if (badPorts.length > 0) {
-      if (valid) {
-        alert({ title: "Port must be an integer between 1 and 65535, inclusive.", severity: "error" });
-        document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     }
 
@@ -570,19 +661,13 @@ export function LoadBalancerCreate({ kind }: Props) {
       .map((l) => l.id);
     setFixedResponseErrorIds(badFixedResponses);
     if (badFixedResponses.length > 0) {
-      if (valid) {
-        alert({ title: "Response code must be a valid HTTP status code (2xx, 4xx, or 5xx).", severity: "error" });
-        document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      if (valid) document.getElementById("listeners-routing")?.scrollIntoView({ behavior: "smooth", block: "start" });
       valid = false;
     }
 
     if (justifications.trim().length < 20) {
       setJustificationError(true);
-      if (valid) {
-        alert({ title: "Business justification is required (minimum 20 characters)", severity: "error" });
-        document.getElementById("justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+      if (valid) document.getElementById("justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
       valid = false;
     } else {
       setJustificationError(false);
@@ -593,16 +678,12 @@ export function LoadBalancerCreate({ kind }: Props) {
         const res = await lbApi.checkLbName(name, selectedRegion);
         if (res.exists) {
           setNameExistsError(true);
-          alert({
-            title: `A load balancer named "${name}" already exists in ${selectedRegion}.`,
-            severity: "error",
-          });
           nameInputRef.current?.focus();
           nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
           valid = false;
         }
       } catch {
-        // fail open — a network hiccup shouldn't block submission; a true dupe still gets caught by AWS on create
+        // fail open
       }
     }
 
@@ -621,11 +702,6 @@ export function LoadBalancerCreate({ kind }: Props) {
 
     if (!isJustificationValid) {
       setJustificationError(true);
-      alert({
-        title: "Business justification is required (minimum 20 characters)",
-        severity: "error",
-      });
-      document.getElementById("justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -855,14 +931,14 @@ export function LoadBalancerCreate({ kind }: Props) {
                 }`}
               placeholder=""
             />
-            {nameErrorMsg ? (
+            {submitted && nameErrorMsg ? (
               <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                 <XCircle size={14} className="mt-0.5 shrink-0" />
                 <span>{nameErrorMsg}</span>
               </div>
             ) : nameCheckLoading ? (
               <p className="mt-2 text-xs text-muted-foreground">Checking availability...</p>
-            ) : nameExistsError ? (
+            ) : submitted && nameExistsError ? (
               <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                 <XCircle size={14} className="mt-0.5 shrink-0" />
                 <span>A load balancer named "{name}" already exists in {selectedRegion}. Choose a different name.</span>
@@ -938,7 +1014,7 @@ export function LoadBalancerCreate({ kind }: Props) {
                 </Select>
               </div>
             </div>
-            {vpcError && (
+            {submitted && vpcError && (
               <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
                 <XCircle size={12} /> VPC is required.
               </p>
@@ -1136,7 +1212,7 @@ export function LoadBalancerCreate({ kind }: Props) {
                   </div>
                 );
               })}
-              {subnetError && (
+              {submitted && subnetError && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
                   <XCircle size={12} /> {azs.length < 2 ? "Select at least 2 Availability Zones." : "Each selected Availability Zone must have a subnet chosen."}
                 </p>
@@ -1152,28 +1228,34 @@ export function LoadBalancerCreate({ kind }: Props) {
         <Section id="security-groups" title="Security Groups">
           <Field label={isAlb ? "Security groups" : "Security groups - recommended"}>
             <div className="flex flex-col gap-2">
-              <Select
-                value=""
-                onValueChange={(value) => {
-                  if (value && !sgs.includes(value) && sgs.length < 5) {
-                    setSgs((p) => [...p, value]);
-                  }
-                  setSelectedSgId("");
-                }}
-                disabled={!vpc || loadingVpc}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={!vpc ? "Select a VPC" : loadingVpc ? "Loading..." : "Select a security group"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {sgOptions.map((o) => (
-                    <SelectItem key={o.id} value={o.id} disabled={sgs.includes(o.id) && selectedSgId !== o.id}>
-                      {o.name} ({o.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {sgError && (
+              {(() => {
+                const defaultSg = sgOptions.find((o) => o.name.toLowerCase() === DEFAULT_SG_NAME.toLowerCase());
+                const isDefaultSgLocked = !!defaultSg && sgs.includes(defaultSg.id);
+                return (
+                  <Select
+                    value={selectedSgId}
+                    onValueChange={(value) => {
+                      if (value && !sgs.includes(value) && sgs.length < 5) {
+                        setSgs((p) => [...p, value]);
+                      }
+                      setSelectedSgId("");
+                    }}
+                    disabled={!vpc || loadingVpc || isDefaultSgLocked}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={!vpc ? "Select a VPC" : loadingVpc ? "Loading..." : "Select a security group"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sgOptions.map((o) => (
+                        <SelectItem key={o.id} value={o.id} disabled={sgs.includes(o.id) && selectedSgId !== o.id}>
+                          {o.name} ({o.id})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
+              {submitted && sgError && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
                   <XCircle size={12} /> At least one security group is required.
                 </p>
@@ -1182,21 +1264,24 @@ export function LoadBalancerCreate({ kind }: Props) {
               <div className="flex flex-wrap gap-2">
                 {sgs.map((g) => {
                   const sg = sgOptions.find((o) => o.id === g);
+                  const isDefault = sg?.name.toLowerCase() === DEFAULT_SG_NAME.toLowerCase();
                   return (
                     <span key={g} className="inline-flex items-center gap-2 px-2.5 py-1 text-xs border border-border rounded-md bg-primary/10 text-primary">
                       {sg ? `${sg.name} (${sg.id})` : g}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextSgs = sgs.filter((x) => x !== g);
-                          setSgs(nextSgs);
-                          setSelectedSgId(nextSgs[nextSgs.length - 1] ?? "");
-                        }}
-                        className="hover:text-foreground"
-                        aria-label={`Remove ${g}`}
-                      >
-                        <X size={12} />
-                      </button>
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextSgs = sgs.filter((x) => x !== g);
+                            setSgs(nextSgs);
+                            setSelectedSgId(nextSgs[nextSgs.length - 1] ?? "");
+                          }}
+                          className="hover:text-foreground"
+                          aria-label={`Remove ${g}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </span>
                   );
                 })}
@@ -1258,7 +1343,7 @@ export function LoadBalancerCreate({ kind }: Props) {
                             : "border-border"
                             }`}
                         />
-                        {portErrorIds.includes(listener.id) ? (
+                        {submitted && portErrorIds.includes(listener.id) ? (
                           <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                             <XCircle size={14} className="mt-0.5 shrink-0" />
                             <span>Port must be an integer between 1 and 65535, inclusive.</span>
@@ -1377,6 +1462,11 @@ export function LoadBalancerCreate({ kind }: Props) {
                               );
                             })}
                           </div>
+                            {submitted && listenerTgError.includes(listener.id) && (
+                              <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
+                                <XCircle size={12} /> A target group is required.
+                              </p>
+                            )}
                           <button
                             type="button"
                             onClick={() => addTargetGroup(listener.id)}
@@ -1527,7 +1617,7 @@ export function LoadBalancerCreate({ kind }: Props) {
                               className={`w-full bg-input/40 border rounded-md px-3 py-2 text-sm ${fixedResponseErrorIds.includes(listener.id) ? "border-red-500 ring-2 ring-red-200" : "border-border"
                                 }`}
                             />
-                            {fixedResponseErrorIds.includes(listener.id) ? (
+                            {submitted && fixedResponseErrorIds.includes(listener.id) ? (
                               <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                                 <XCircle size={14} className="mt-0.5 shrink-0" />
                                 <span>Response code must be a valid HTTP status code (2xx, 4xx, or 5xx).</span>
@@ -1663,17 +1753,13 @@ export function LoadBalancerCreate({ kind }: Props) {
               onChange={(e) => {
                 const value = e.target.value;
                 setJustifications(value);
-                if (justificationTouched) setJustificationError(value.trim().length > 0 && value.trim().length < 20);
-              }}
-              onBlur={() => {
-                setJustificationTouched(true);
-                setJustificationError(justifications.trim().length > 0 && justifications.trim().length < 20);
+                if (submitted) setJustificationError(value.trim().length < 20);
               }}
               rows={3}
               maxLength={250}
             />
             <div className="flex justify-between items-center">
-              {justificationError ? (
+              {submitted && justificationError ? (
                 <div className="text-xs text-red-600">
                   Business justification must contain at least 20 characters.
                 </div>
@@ -1759,10 +1845,6 @@ export function LoadBalancerCreate({ kind }: Props) {
               </div>
 
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Load balancer tags</p>
-                <p className="font-medium text-foreground">{loadBalancerTags.length ? loadBalancerTags.map((t) => `${t.key}:${t.value}`).join(", ") : "-"}</p>
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50 border border-border">
                 <p className="text-xs text-muted-foreground mb-1">Business Justification</p>
                 <p className="font-medium text-foreground">{justifications || "-"}</p>
               </div>
@@ -1797,8 +1879,7 @@ export function LoadBalancerCreate({ kind }: Props) {
           <span title={disabledReason ?? undefined}>
             <Button
               onClick={submit}
-              disabled={!isFormComplete}
-              className="bg-warning text-warning-foreground hover:bg-warning/90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
             >
               Create Load Balancer
             </Button>
@@ -2012,4 +2093,3 @@ function NlbHowItWorks() {
     />
   );
 }
-

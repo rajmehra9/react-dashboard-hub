@@ -55,7 +55,7 @@ const hasDestroyLogs = (logText: string): boolean =>
   /LOAD\s+BALANCER\s+CLI\s+TERMINATION\s+LOGS/i.test(logText);
 
 const hasRetryLogs = (logText: string): boolean =>
-  /TERMINATE\s+RETRY\s+ATTEMPT/i.test(logText);
+  /RETRY\s+ATTEMPT/i.test(logText);
 
 type ArchiveFetchKey = { requestId: string; status: string } | null;
 
@@ -65,6 +65,7 @@ export function LiveConsole() {
   const { alert, confirm } = useDialog();
   const hasFetchedArchiveRef = useRef<ArchiveFetchKey>(null);
   const isConnectingRef = useRef(false);
+  const lastSseAttemptRef = useRef<number>(0);
   const archiveStreamingRef = useRef(false);
   const activeServiceRef = useRef<string | null>(null);
   const activeOperationRef = useRef<string | null>(null);
@@ -101,7 +102,17 @@ export function LiveConsole() {
     "retrying",
     "retrying_terminate",
     "destroying",
-  ]; 
+  ];
+
+  // For vpc-terminate-service, 'completed' is a transient state (VPC was
+  // provisioned successfully) that will transition to 'destroying'. Treat it
+  // as non-terminal so we keep polling and connect to SSE once destroying starts.
+  const effectiveTerminalStatuses = activeService === "vpc-terminate-service"
+    ? TERMINAL_STATUSES.filter((s) => s !== "completed")
+    : TERMINAL_STATUSES;
+  const effectiveProvisioningStatuses = activeService === "vpc-terminate-service"
+    ? [...PROVISIONING_STATUSES, "completed"]
+    : PROVISIONING_STATUSES;
 
 
 
@@ -153,6 +164,7 @@ useEffect(() => {
     liveSseLogsRef.current = [];
     liveStreamHadRetryRef.current = false;
     isConnectingRef.current = false;
+    lastSseAttemptRef.current = 0;
     hasFetchedArchiveRef.current = null;
 
     if (abortControllerRef.current) {
@@ -181,7 +193,8 @@ useEffect(() => {
       lowerMsg.includes("success") ||
       lowerMsg.includes("completed") ||
       lowerMsg.includes("✅") ||
-      lowerMsg.includes("🎉")
+      lowerMsg.includes("🎉") ||
+      lowerMsg.includes("[triggered by]")
     )
       return "success";
     return "info";
@@ -268,7 +281,7 @@ useEffect(() => {
         }
         if (
           usesCombinedLogFile &&
-          targetStatus === "terminated" &&
+          (targetStatus === "terminated" || targetStatus === "destroyed" || targetStatus === "completed") &&
           liveStreamHadRetryRef.current &&
           !hasRetryLogs(logText)
         ) {
@@ -342,7 +355,32 @@ useEffect(() => {
         );
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // For vpc-terminate-service, a 400 while status is still 'completed'
+          // means the destroy hasn't started yet — release the connecting lock
+          // so the next status poll can retry connecting once 'destroying' is seen.
+          if (response.status === 400 && activeServiceRef.current === "vpc-terminate-service") {
+            console.log("[LiveConsole] vpc-terminate SSE not ready yet (400), will retry on next status poll");
+            isConnectingRef.current = false;
+            setIsLiveMode(false);
+            return;
+          }
+          // For lb-service / lb-cli-terminate-service, a 400 means the operation
+          // already completed and logs are in S3 — release the lock so the status
+          // poll triggers archive fetch.
+          if (response.status === 400 && (
+            activeServiceRef.current === "lb-service" ||
+            activeServiceRef.current === "lb-cli-terminate-service"
+          )) {
+            console.log("[LiveConsole] lb SSE not available (400) — switching to archive");
+            isConnectingRef.current = false;
+            setIsLiveMode(false);
+            return;
+          }
+          // Any other non-ok response — release lock and stop live mode
+          console.log(`[LiveConsole] SSE returned ${response.status} — releasing lock`);
+          isConnectingRef.current = false;
+          setIsLiveMode(false);
+          return;
         }
 
         if (!response.body) {
@@ -407,7 +445,7 @@ useEffect(() => {
                 // Regular log message
                 if (data.message) {
                   const cleanMessage = stripAnsiCodes(stripTimestamp(data.message));
-                 if (/TERMINATE\s+RETRY\s+ATTEMPT/i.test(cleanMessage)) {
+                 if (/RETRY\s+ATTEMPT/i.test(cleanMessage)) {
                     liveStreamHadRetryRef.current = true;
                   }
 
@@ -453,22 +491,25 @@ useEffect(() => {
     const status = requestMeta.status;
     const isLiveOnlyActive = isLiveOnlyService(activeService ?? undefined);
 
-    if (PROVISIONING_STATUSES.includes(status) || isLiveOnlyActive) {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-
-      if (!isConnectingRef.current) {
+    if (effectiveProvisioningStatuses.includes(status) || isLiveOnlyActive) {
+      // Only connect if not already streaming and enough time has passed since
+      // last attempt (5s debounce prevents reconnect loops on 400 responses).
+      const now = Date.now();
+      const msSinceLastAttempt = now - lastSseAttemptRef.current;
+      if (!isConnectingRef.current && msSinceLastAttempt > 5000) {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
         isConnectingRef.current = true;
-        // Reset so the NEXT terminal state triggers a fresh S3 fetch
+        lastSseAttemptRef.current = now;
         hasFetchedArchiveRef.current = null;
-         setDisplayedLogs([]);
-         setAllLogs([]);
+        setDisplayedLogs([]);
+        setAllLogs([]);
         setIsLiveMode(true);
         connectToLiveLogs(effectiveRequestId);
       }
-    } else if (TERMINAL_STATUSES.includes(status)) {
+    } else if (effectiveTerminalStatuses.includes(status)) {
       // Use a compound key so "completed" and "terminated" are treated as
       // distinct fetch targets for the same requestId.
       const fetchKey: ArchiveFetchKey = {
@@ -690,7 +731,8 @@ useEffect(() => {
             disabled={
               requestMeta?.status !== "completed" &&
               requestMeta?.status !== "terminated" &&
-              requestMeta?.status !== "failed"
+              requestMeta?.status !== "failed" &&
+              requestMeta?.status !== "destroyed"
             }
           >
             {isPaused ? (
@@ -707,7 +749,9 @@ useEffect(() => {
               isAwsDisconnected ||
               (requestMeta?.status !== "completed" &&
                 requestMeta?.status !== "terminated" &&
-                requestMeta?.status !== "failed")
+                requestMeta?.status !== "failed" &&
+                 requestMeta?.status !== "destroyed"
+              )
             }
             onClick={() => handleClearLogs(requestMeta!.requestId)}
             className="h-8 w-8"
@@ -723,7 +767,8 @@ useEffect(() => {
             disabled={
               requestMeta?.status !== "completed" &&
               requestMeta?.status !== "terminated" &&
-              requestMeta?.status !== "failed"
+              requestMeta?.status !== "failed" && 
+              requestMeta?.status !== "destroyed"
             }
           >
             <Download className="h-4 w-4" />

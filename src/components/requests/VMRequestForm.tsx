@@ -381,14 +381,26 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   const isOverQuota = totalVMs > MAX_VM_LIMIT; //5>13
 
   const effectiveVMs = requestedVMs;
-  const addVmGroupDisabled = generalGroups.length >= MAX_GENERAL_GROUPS || newVMs >= remainingQuota;
-  const addVmGroupTooltip = generalGroups.length >= MAX_GENERAL_GROUPS
-    ? `Maximum ${MAX_GENERAL_GROUPS} VM groups allowed.`
-    : remainingQuota <= 0
-      ? "No VM quota remaining."
-      : "VM quota limit reached for this request.";
 
   const defaultType = currentUser?.allowedInstanceTypes?.[0] ?? "";
+
+  const resetVmConfiguration = (nextMode: VmMode) => {
+    setVmMode(nextMode);
+    setRoles({});
+    setGeneralGroups(
+      nextMode === "general"
+        ? [
+            {
+              id: makeGroupId(),
+              name: "",
+              instanceType: defaultType,
+              count: 1,
+            },
+          ]
+        : []
+    );
+    setRoleConfigs([]);
+  };
 
   const updateRole = (
     roleId: string,
@@ -1139,7 +1151,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setVmMode("splunk")}
+                onClick={() => resetVmConfiguration("splunk")}
                 className={cn(
                   "text-left rounded-lg border p-4 transition-colors",
                   vmMode === "splunk"
@@ -1157,19 +1169,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setVmMode("general");
-                  if (generalGroups.length === 0) {
-                    setGeneralGroups([
-                      {
-                        id: makeGroupId(),
-                        name: "",
-                        instanceType: defaultType,
-                        count: 1,
-                      },
-                    ]);
-                  }
-                }}
+                onClick={() => resetVmConfiguration("general")}
                 className={cn(
                   "text-left rounded-lg border p-4 transition-colors",
                   vmMode === "general"
@@ -1245,7 +1245,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                   >
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">
-                        Name Tag <span className="text-destructive">*</span>
+                        Name Tag
                       </label>
                       <Input
                         placeholder="e.g. app-server-1"
@@ -1332,43 +1332,30 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                 <p className="text-xs text-muted-foreground">
                   {generalGroups.length} / {MAX_GENERAL_GROUPS} VM groups
                 </p>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            setGeneralGroups((prev) =>
-                              prev.length >= MAX_GENERAL_GROUPS
-                                ? prev
-                                : [
-                                    ...prev,
-                                    {
-                                      id: makeGroupId(),
-                                      name: "",
-                                      instanceType: defaultType,
-                                      count: 1,
-                                    },
-                                  ],
-                            )
-                          }
-                          disabled={addVmGroupDisabled}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add VM Group
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    {addVmGroupDisabled && (
-                      <TooltipContent side="top" sideOffset={8}>
-                        <p>{addVmGroupTooltip}</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setGeneralGroups((prev) =>
+                      prev.length >= MAX_GENERAL_GROUPS
+                        ? prev
+                        : [
+                            ...prev,
+                            {
+                              id: makeGroupId(),
+                              name: "",
+                              instanceType: defaultType,
+                              count: 1,
+                            },
+                          ],
+                    )
+                  }
+                  disabled={generalGroups.length >= MAX_GENERAL_GROUPS || newVMs >= remainingQuota}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add VM Group
+                </Button>
               </div>
             </div>
           )}

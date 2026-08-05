@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Info } from "lucide-react";
-import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDialog } from "../ui/dialog-context";
 import { Button } from "@/components/ui/button";
@@ -27,7 +25,6 @@ import {
   createRoute53Record,
   fetchRoute53LoadBalancers,
   Route53LoadBalancerItem,
-  checkExistingRoute53Record
 } from "@/services/route53Api";
 import { ApiError } from "@/lib/api";
 import {
@@ -52,7 +49,7 @@ function isValidRecordName(name: string) {
   return RECORD_NAME_PATTERN.test(trimmed);
 }
 
-const TTL_MAX = 600;
+// const TTL_MAX = 600;
 
 const ENDPOINT_OPTIONS = [
   {
@@ -95,6 +92,21 @@ function findDuplicates(values: string[]): string[] {
   return Array.from(duplicates);
 }
 
+function isValidIPv4(ip: string): boolean {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return false;
+  return parts.every((part) => {
+    if (!/^\d{1,3}$/.test(part)) return false; // digits only, 1-3 chars
+    const n = Number(part);
+    // reject values > 255, and reject leading-zero forms like "065"
+    return n >= 0 && n <= 255 && String(n) === part;
+  });
+}
+
+function findInvalidIPv4s(values: string[]): string[] {
+  return values.filter((v) => !isValidIPv4(v));
+}
+
 
 
 export default function CreateRecord() {
@@ -123,7 +135,7 @@ export default function CreateRecord() {
 
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+   const [ttlError, setTtlError] = useState("");
   const selectedLoadBalancer = useMemo(
     () => loadBalancers.find((lb) => lb.id === selectedLoadBalancerId) || null,
     [loadBalancers, selectedLoadBalancerId]
@@ -188,32 +200,35 @@ export default function CreateRecord() {
   }, [alias]);
 
 
-  const ttlError = useMemo(() => {
-    if (alias) return ""; // TTL isn't used for alias records
-    const trimmed = ttl.trim();
-    if (trimmed === "") return "TTL is required.";
-    if (!/^\d+$/.test(trimmed)) return "TTL must be a non-negative integer.";
-    if (Number(trimmed) > TTL_MAX) return `TTL cannot exceed ${TTL_MAX} seconds.`;
-    return "";
-  }, [ttl, alias]);
+  // const ttlError = useMemo(() => {
+  //   if (alias) return ""; // TTL isn't used for alias records
+  //   const trimmed = ttl.trim();
+  //   if (trimmed === "") return "TTL is required.";
+  //   if (!/^\d+$/.test(trimmed)) return "TTL must be a non-negative integer.";
+  //   if (Number(trimmed) > TTL_MAX) return `TTL cannot exceed ${TTL_MAX} seconds.`;
+  //   return "";
+  // }, [ttl, alias]);
 
 
 
   const recordDisplayName = recordName.trim() ? `${recordName.trim()}.${hostedZoneName}` : hostedZoneName;
   const ttlValue = Number(ttl);
   const valueLines = parseValueEntries(value);
-
+  const invalidIps = useMemo(
+    () => (!alias && recordType === "A" ? findInvalidIPv4s(valueLines) : []),
+    [valueLines, alias, recordType]
+  );
 
   const MIN_JUSTIFICATION_LENGTH = 20;
 
 
-  const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    // allow clearing the field, or any non-negative integer — reject minus signs, decimals, etc.
-    if (raw === "" || /^\d+$/.test(raw)) {
-      setTtl(raw);
-    }
-  };
+  // const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const raw = e.target.value;
+  //   // allow clearing the field, or any non-negative integer — reject minus signs, decimals, etc.
+  //   if (raw === "" || /^\d+$/.test(raw)) {
+  //     setTtl(raw);
+  //   }
+  // };
 
   const isFormValid = useMemo(() => {
     if (hasActiveRecord) return false;
@@ -228,6 +243,7 @@ export default function CreateRecord() {
     } else {
       if (valueLines.length === 0) return false;
       if (findDuplicates(valueLines).length > 0) return false;
+      if (findInvalidIPv4s(valueLines).length > 0) return false;
       if (ttlError !== "") return false;
       if (!Number.isInteger(Number(ttl)) || Number(ttl) < 0 || ttl.trim() === "") return false;
     }
@@ -254,6 +270,16 @@ export default function CreateRecord() {
         alert({
           title: "Duplicate values",
           description: `Each value must be unique. Duplicate found: ${duplicates.join(", ")}`,
+          severity: "error",
+        });
+        return;
+      }
+
+      const invalid = findInvalidIPv4s(valueLines);
+      if (invalid.length > 0) {
+        alert({
+          title: "Invalid IPv4 address",
+          description: `Value is not a valid IPv4 address: '${invalid.join("', '")}'`,
           severity: "error",
         });
         return;
@@ -332,6 +358,36 @@ export default function CreateRecord() {
     }
   };
 
+const TTL_MIN = 60;
+const TTL_MAX = 300;
+
+const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const value = e.target.value;
+
+  if (!/^\d{0,3}$/.test(value)) return;
+
+  setTtl(value);
+  validateTtl(value);
+};
+
+
+const validateTtl = (value: string) => {
+  if (value === "") {
+    setTtlError("TTL is required");
+    return;
+  }
+
+  const ttlValue = Number(value);
+
+  if (ttlValue < TTL_MIN || ttlValue > TTL_MAX) {
+    setTtlError(`TTL must be between ${TTL_MIN} and ${TTL_MAX}`);
+  } else {
+    setTtlError("");
+  }
+};
+
+
+  
   return (
     <div className="space-y-4">
       <Header title={hostedZoneName} subtitle="Info" showSearch={false} />
@@ -343,7 +399,6 @@ export default function CreateRecord() {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <label className="font-medium">Record name</label>
-                  <Info className="h-4 w-4 text-primary" />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -366,7 +421,6 @@ export default function CreateRecord() {
               <div>
                 <div className="mb-2 flex items-center gap-2">
                   <label className="font-medium">Record type</label>
-                  <Info className="h-4 w-4 text-primary" />
                 </div>
 
                 <Select value={recordType} onValueChange={setRecordType}>
@@ -391,7 +445,6 @@ export default function CreateRecord() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <label className="font-medium">Route traffic to</label>
-                    <Info className="h-4 w-4 text-primary" />
                   </div>
 
                   <Select value={endpointType} onValueChange={setEndpointType}>
@@ -411,7 +464,6 @@ export default function CreateRecord() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <label className="font-medium">Region</label>
-                    <Info className="h-4 w-4 text-primary" />
                   </div>
 
                   <Select value={region} onValueChange={setRegion}>
@@ -431,7 +483,6 @@ export default function CreateRecord() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <label className="font-medium">Load balancer</label>
-                    <Info className="h-4 w-4 text-primary" />
                   </div>
 
                   <Select
@@ -472,7 +523,6 @@ export default function CreateRecord() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <label className="font-medium">Routing policy</label>
-                      <Info className="h-4 w-4 text-primary" />
                     </div>
 
                     <Select value={routingPolicy} onValueChange={setRoutingPolicy}>
@@ -492,7 +542,6 @@ export default function CreateRecord() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <label className="font-medium">Evaluate target health</label>
-                      <Info className="h-4 w-4 text-primary" />
                     </div>
 
                     <div className="flex h-10 items-center rounded-md border border-border px-3">
@@ -509,33 +558,35 @@ export default function CreateRecord() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <label className="font-medium">Value</label>
-                    <Info className="h-4 w-4 text-primary" />
                   </div>
 
                   <Textarea
-                    rows={5}
+                    rows={2}
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     placeholder={`3.17.183.49`}
                     className="resize-none"
                   />
 
-                  <p className="text-sm text-muted-foreground">
-                    Enter one value per line. For alias records, use the toggle above.
-                  </p>
+                  {invalidIps.length > 0 ? (
+                    <p className="text-sm text-destructive">
+                      Invalid IPv4 address: {invalidIps.map((ip) => `'${ip}'`).join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Enter one value per line. For alias records, use the toggle above.
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <label className="font-medium">TTL (seconds)</label>
-                      <Info className="h-4 w-4 text-primary" />
                     </div>
-
                     <Input
-                      type="number"
-                      min={0}
-                      max={TTL_MAX}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={ttl}
                       onChange={handleTtlChange}
                     />
@@ -559,7 +610,6 @@ export default function CreateRecord() {
                 <div className="space-y-2">
                   <div className="mb-2 flex items-center gap-2">
                     <label className="font-medium">Routing policy</label>
-                    <Info className="h-4 w-4 text-primary" />
                   </div>
 
                   <Select value={routingPolicy} onValueChange={setRoutingPolicy}>
@@ -580,7 +630,6 @@ export default function CreateRecord() {
             <div className="space-y-2 rounded-lg border border-border bg-background/40 p-6">
               <div className="flex items-center gap-2">
                 <label className="font-medium">Justification</label>
-                <Info className="h-4 w-4 text-primary" />
               </div>
 
               <Textarea
@@ -615,7 +664,7 @@ export default function CreateRecord() {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    You already have an active DNS record in this hosted zone. Delete it before creating another.
+                    Your Maximum Limit is reached.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
