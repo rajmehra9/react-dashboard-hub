@@ -1282,6 +1282,20 @@ export function LoadBalancerCreate({ kind }: Props) {
                           <X size={12} />
                         </button>
                       )}
+                      {!isDefault && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextSgs = sgs.filter((x) => x !== g);
+                            setSgs(nextSgs);
+                            setSelectedSgId(nextSgs[nextSgs.length - 1] ?? "");
+                          }}
+                          className="hover:text-foreground"
+                          aria-label={`Remove ${g}`}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
                     </span>
                   );
                 })}
