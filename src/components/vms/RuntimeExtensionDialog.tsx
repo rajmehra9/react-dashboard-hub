@@ -647,7 +647,7 @@ export default function RuntimeExtensionDialog({
           {/* ── Reason ───────────────────────────────────────────────────── */}
           <div className="space-y-2">
             <Label>
-              Reason for Extension <span className="text-destructive">*</span>
+              Reason for Extension 
             </Label>
             <Textarea
               placeholder="Explain why you need more time..."

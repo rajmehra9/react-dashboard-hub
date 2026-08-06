@@ -98,6 +98,7 @@ export function CreateVpc({ onClose }: { onClose?: () => void } = {}) {
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [exclusionsOpen, setExclusionsOpen] = useState(false);
   const exclusionsRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   // vpc-only
   const [name, setName] = useState("");
@@ -124,6 +125,8 @@ export function CreateVpc({ onClose }: { onClose?: () => void } = {}) {
   const [customSubnetCidrs, setCustomSubnetCidrs] = useState<Record<string, string>>({});
   const [businessJustification, setBusinessJustification] = useState("");
   const [businessJustificationError, setBusinessJustificationError] = useState("");
+  const [cidrError, setCidrError] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false); 
   const [hasActiveVpc, setHasActiveVpc] = useState(false);
@@ -385,14 +388,24 @@ useEffect(() => {
       }
 
     // CIDR validation
-    if (!isCidrPrefixValid(ipv4Cidr)) {
-      alert({
-        title: "Invalid IPv4 CIDR block",
-        description: "CIDR prefix must be between /16 and /28.",
-        severity: "error",
-      });
-      valid = false;
+    const cidrValidation = isCidrPrefixValid(ipv4Cidr) ? "" : "CIDR prefix must be between /16 and /28.";
+    setCidrError(cidrValidation);
+    if (cidrValidation) valid = false;
+
+    // Scroll to first error
+    if (!valid) {
+      setTimeout(() => {
+        if (nameValidation) {
+          nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+          nameInputRef.current?.focus();
+        } else if (cidrValidation) {
+          document.getElementById("vpc-settings-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (justificationValidation) {
+          document.getElementById("vpc-justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 0);
     }
+
     return valid;
   };
 
@@ -513,7 +526,7 @@ const create = async () => {
       >
         {/* 2-column grid wrapper (only when preview is on for vpc-and-more) */}
         <div className={(mode === "vpc-and-more" && showPreviewToggle) ? "grid grid-cols-[460px_1fr] gap-6 items-start" : ""}>
-          <section className="glass-panel rounded-xl p-6">       
+          <section id="vpc-settings-section" className="glass-panel rounded-xl p-6">       
         
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
@@ -567,12 +580,12 @@ const create = async () => {
               <div className="grid grid-cols-2 gap-3">
                 <SelectCard
                   selected={mode === "vpc-only"}
-                  onClick={() => setMode("vpc-only")}
+                  onClick={() => { setMode("vpc-only"); setNameError(""); }}
                   label="VPC only"
                 />
                 <SelectCard
                   selected={mode === "vpc-and-more"}
-                  onClick={() => setMode("vpc-and-more")}
+                  onClick={() => { setMode("vpc-and-more"); setNameError(""); }}
                   label="VPC and more"
                 />
               </div>
@@ -588,6 +601,7 @@ const create = async () => {
                 nameError={nameError}
                 setNameError={setNameError}
                 validateName={validateName}
+                nameInputRef={nameInputRef}
                 ipv4Mode={ipv4Mode}
                 setIpv4Mode={setIpv4Mode}
                 ipv4Cidr={ipv4Cidr}
@@ -613,6 +627,9 @@ const create = async () => {
                 setExclusionsOpen={setExclusionsOpen}
                 exclusionsRef={exclusionsRef}
                 EXCLUSION_OPTIONS={EXCLUSION_OPTIONS}
+                submitted={submitted}
+                cidrError={cidrError}
+                setCidrError={setCidrError}
               />
             ) : (
               <>
@@ -718,6 +735,8 @@ const create = async () => {
                   <p className="text-xs text-destructive">
                     CIDR prefix must be between /16 and /28.
                   </p>
+                ) : submitted && cidrError ? (
+                  <p className="text-xs text-destructive">{cidrError}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Determine the starting IP and the size of your VPC using CIDR notation.
@@ -1265,7 +1284,7 @@ const create = async () => {
         </div>
 
         {/* Business Justification - always full width at bottom */}
-        <section className="glass-panel rounded-xl p-6 mt-6">
+        <section id="vpc-justification" className="glass-panel rounded-xl p-6 mt-6">
           <div className="flex items-center gap-2 mb-4">
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Business Justification</h2>
@@ -1273,9 +1292,7 @@ const create = async () => {
 
           <div className="relative">
             <Textarea
-              className={`resize-none ${
-                  businessJustificationError ? "border-red-500" : ""
-              }`}
+              className="resize-none"
               placeholder="Provide a brief justification for this VPC request."
               value={businessJustification}
               onChange={(e) => {
@@ -1317,19 +1334,15 @@ const create = async () => {
           Cancel
         </Button>
            <Button
-            onClick={() => { if (validateBeforeConfirm()) setShowConfirm(true); }}
-            disabled={
-              (mode === "vpc-only"
-                ? !name.trim()
-                : autoGen && !autoName.trim()) ||
-              businessJustification.trim().length < 20
-            }
+            onClick={() => { setSubmitted(true); if (validateBeforeConfirm()) setShowConfirm(true); }}
           >Create VPC</Button>
         </div>
       </div>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent className="max-w-3xl bg-background border-border">
+        <DialogContent 
+          className="max-w-3xl bg-background border-border"
+          onInteractOutside={(event) => event.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Confirm VPC Creation</DialogTitle>
 
@@ -1413,14 +1426,14 @@ function cidrSize(cidr: string) {
 /* ---------- VPC-only sub-form (extracted to keep parent readable) ---------- */
 function VpcOnlyFields(p: any) {
   const {
-    name, setName, nameError, setNameError, validateName,
+    name, setName, nameError, setNameError, validateName, nameInputRef,
     ipv4Mode, setIpv4Mode, ipv4Cidr, setIpv4Cidr,ipv4CidrError,
     ipv4IpamPool, setIpv4IpamPool, ipv4IpamNetmask, setIpv4IpamNetmask,
     ipv6Mode, setIpv6Mode, ipv6IpamPool, setIpv6IpamPool,
     ipv6OwnedPool, setIpv6OwnedPool,
     tenancy, setTenancy, encryption, setEncryption,
     exclusions, setExclusions, exclusionsOpen, setExclusionsOpen, exclusionsRef,
-    EXCLUSION_OPTIONS,
+    EXCLUSION_OPTIONS, submitted, cidrError,
   } = p;
   return (
     <>
@@ -1429,6 +1442,7 @@ function VpcOnlyFields(p: any) {
 
           <Input
             id="name-tag"
+            ref={nameInputRef}
             value={name}
             onChange={(e) => {
               setName(e.target.value);
@@ -1486,7 +1500,7 @@ function VpcOnlyFields(p: any) {
               spellCheck={false}
             />
 
-            {ipv4CidrError ? (
+            {ipv4CidrError || (submitted && cidrError) ? (
               <p className="text-xs text-destructive">
                 CIDR prefix must be between /16 and /28.
               </p>

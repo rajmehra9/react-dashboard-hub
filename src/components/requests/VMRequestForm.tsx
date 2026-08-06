@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/store/appStore";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   VM_ROLES,
   INSTANCE_TYPES,
@@ -146,6 +146,15 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   const [justification, setJustification] = useState("");
   const [justificationTouched, setJustificationTouched] = useState(false);
   const [justificationError, setJustificationError] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [projectIdentifierError, setProjectIdentifierError] = useState("");
+  const [sshKeyError, setSshKeyError] = useState("");
+  const [splunkVersionError, setSplunkVersionError] = useState("");
+  const [generalGroupErrors, setGeneralGroupErrors] = useState<Record<string, string>>({});
+  const projectIdentifierRef = useRef<HTMLInputElement>(null);
+  const sshKeySectionRef = useRef<HTMLDivElement>(null);
+  const splunkVersionSectionRef = useRef<HTMLDivElement>(null);
+  const justificationRef = useRef<HTMLDivElement>(null);
 
   // ── Runtime Policy Logic ──────────────────────────────────────────────────
   const runtimePolicyInfo = (() => {
@@ -436,190 +445,103 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   };
 
   const onOpenDialog = () => {
-    if (!category) {
-      alert({
-        title: "Please select a category for your VM request",
-        severity: "error"
-      })
-      return;
-    }
+    setSubmitted(true);
+    setJustificationTouched(true);
 
-    if (category !== 2 && totalVMs === 0) {
-      alert({
-        title: "Please select at least one VM role",
-        severity: "error"
-      })
-      return;
-    }
-
-    if (isOverQuota) {
-      alert({
-        title: `Exceeds quota. Maximum ${remainingQuota} VMs allowed.`,
-        severity: "error"
-      })
-      return;
-    }
-
+    // ── Compute all errors synchronously ─────────────────────────────────
+    let projErr = "";
     if (!projectIdentifier.trim()) {
-      alert({
-        title: "Project Identifier is required",
-        severity: "error"
-      })
-      return;
+      projErr = "Project Identifier is required";
+    } else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(projectIdentifier)) {
+      projErr = "Only letters, numbers, and hyphens (-), max 32 characters";
     }
+    setProjectIdentifierError(projErr);
 
-    if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(projectIdentifier)) {
-      alert({
-        title: "Project Identifier must contain only letters, numbers, and hyphens (-), with a maximum length of 32 characters.",
-        severity: "error",
+    const sshErr = !selectedSSHKeyName ? "Please select an SSH key" : "";
+    setSshKeyError(sshErr);
+
+    const splunkErr = category !== 1 && !splunkVersion ? "Please select a Splunk version" : "";
+    setSplunkVersionError(splunkErr);
+
+    const justErr = justification.trim().length < 20 || !/[a-zA-Z]/.test(justification.trim());
+    setJustificationError(justErr);
+
+    // General group errors (cat 1, general mode)
+    const grpErrors: Record<string, string> = {};
+    if (category === 1 && vmMode === "general") {
+      const trimmedGroups = generalGroups.filter((g) => (g.count || 0) > 0);
+      const names = trimmedGroups.map((g) => g.name.trim().toLowerCase());
+      trimmedGroups.forEach((g) => {
+        if (!g.name.trim()) grpErrors[g.id] = "Name is required";
+        else if (!g.instanceType) grpErrors[g.id] = "Instance type is required";
       });
-      return;
-    }
-
-    if (!selectedSSHKeyName) {
-      alert({
-        title: "Please select an SSH key for VM access",
-        severity: "error"
-      })
-      return;
-    }
-
-    if (category !== 1 && !splunkVersion) {
-      alert({
-        title: "Please select a Splunk Version",
-        severity: "error",
+      // Duplicate name check
+      names.forEach((n, i) => {
+        if (n && names.indexOf(n) !== i) {
+          grpErrors[trimmedGroups[i].id] = "Group names must be unique";
+        }
       });
-      return;
     }
-    if (category === 1 && !ami) {
-      alert({
-        title: "Please select an AMI",
-        severity: "error",
-      });
-      return;
-    }
-    if (
-      category === 1 &&
-      selectedAmi &&
-      diskSize < selectedAmi.minimumDiskSize
-    ) {
-      alert({
-        title: `Minimum disk size for ${selectedAmi.label} is ${selectedAmi.minimumDiskSize} GB.`,
-        severity: "error",
-      });
+    setGeneralGroupErrors(grpErrors);
 
-      return;
-    }
-    const trimmedJustification = justification.trim();
-
-    if (!trimmedJustification) {
-      alert({
-        title: "Justification is required",
-        severity: "error",
-      });
+    // ── Hard-stop conditions (quota / AWS) — keep alert for these ────────
+    if (isOverQuota) {
+      alert({ title: `Exceeds quota. Maximum ${remainingQuota} VMs allowed.`, severity: "error" });
       return;
     }
 
-    if (trimmedJustification.length < 20) {
-      alert({
-        title: "Justification must be at least 20 characters.",
-        severity: "error",
-      });
+    // ── Check if any inline error exists → scroll to first ───────────────
+    const hasInlineError =
+      projErr ||
+      sshErr ||
+      splunkErr ||
+      justErr ||
+      Object.keys(grpErrors).length > 0 ||
+      (category !== 2 && requestedVMs === 0);
+
+    if (hasInlineError) {
+      setTimeout(() => {
+        if (projErr) {
+          projectIdentifierRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (splunkErr) {
+          splunkVersionSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (sshErr) {
+          sshKeySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else if (justErr) {
+          justificationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 0);
       return;
     }
 
-    // Must contain at least one alphabet
-    if (!/[a-zA-Z]/.test(trimmedJustification)) {
-      alert({
-        title: "Justification must contain meaningful text.",
-        severity: "error",
-      });
-      return;
-    }
-
+    // ── Build rolesData ───────────────────────────────────────────────────
     let rolesData: VMRoleConfig[] = [];
 
-  if (category === 2) {
-     // All-in-One role
-    rolesData = [
-      {
-        roleId: "aio",
-        roleName: "All In One",
-        count: 1,
-        instanceType: allInOneInstanceType,
-      },
-    ];
-  } else if (category === 3) {
-    // Category 3 → Predefined Infrastructure
-    rolesData = CATEGORY_3_INFRA.map((r) => ({
-      roleId: r.id,
-      roleName: r.name,
-      count: r.count,
-      instanceType: r.type,
-    }));
-  } else if (category === 4) {
-    // Category 4 → Predefined Infrastructure
-    rolesData = CATEGORY_4_INFRA.map((r) => ({
-      roleId: r.id,
-      roleName: r.name,
-      count: r.count,
-      instanceType: r.type,
-    }));
-  } 
-  else if(category === 5 ){ 
-    // Category 5 → Predefined Infrastructure
-     rolesData = CATEGORY_4_INFRA.map((r) => ({
-      roleId: r.id,
-      roleName: r.name,
-      count: r.count,
-     instanceType: cat5InstanceTypes[r.id] ?? r.type,
-    }));
-  }
-  else {
-    // Category 1 → Splunk Deployment OR General Purpose (Custom)
-    if (vmMode === "general") {
-      const trimmedGroups = generalGroups.filter((g) => (g.count || 0) > 0);
-      if (trimmedGroups.length === 0) {
-        alert({ title: "Add at least one VM group", severity: "error" });
-        return;
-      }
-      const invalid = trimmedGroups.find((g) => !g.name.trim() || !g.instanceType);
-      if (invalid) {
-        alert({ title: "Each VM group needs a name and instance type", severity: "error" });
-        return;
-      }
-      const names = trimmedGroups.map((g) => g.name.trim().toLowerCase());
-      if (new Set(names).size !== names.length) {
-        alert({ title: "VM group names must be unique", severity: "error" });
-        return;
-      }
-      rolesData = trimmedGroups.map((g) => ({
-        roleId: g.id,
-        roleName: g.name.trim(),
-        count: g.count,
-        instanceType: g.instanceType,
-      }));
+    if (category === 2) {
+      rolesData = [{ roleId: "aio", roleName: "All In One", count: 1, instanceType: allInOneInstanceType }];
+    } else if (category === 3) {
+      rolesData = CATEGORY_3_INFRA.map((r) => ({ roleId: r.id, roleName: r.name, count: r.count, instanceType: r.type }));
+    } else if (category === 4) {
+      rolesData = CATEGORY_4_INFRA.map((r) => ({ roleId: r.id, roleName: r.name, count: r.count, instanceType: r.type }));
+    } else if (category === 5) {
+      rolesData = CATEGORY_4_INFRA.map((r) => ({ roleId: r.id, roleName: r.name, count: r.count, instanceType: cat5InstanceTypes[r.id] ?? r.type }));
     } else {
-      // Splunk Deployment (manual role selection)
-      rolesData = Object.entries(roles)
-        .filter(([_, config]) => config.count > 0)
-        .map(([roleId, config]) => {
-          const role = VM_ROLES.find((r) => r.id === roleId)!;
-          return {
-            roleId,
-            roleName: role.name,
-            count: config.count,
-            instanceType: config.instanceType,
-          };
-        });
+      if (vmMode === "general") {
+        rolesData = generalGroups
+          .filter((g) => (g.count || 0) > 0)
+          .map((g) => ({ roleId: g.id, roleName: g.name.trim(), count: g.count, instanceType: g.instanceType }));
+      } else {
+        rolesData = Object.entries(roles)
+          .filter(([_, config]) => config.count > 0)
+          .map(([roleId, config]) => {
+            const role = VM_ROLES.find((r) => r.id === roleId)!;
+            return { roleId, roleName: role.name, count: config.count, instanceType: config.instanceType };
+          });
+      }
     }
-  }
 
     if (category === 3 && CATEGORY_3_TOTAL_VMS > remainingQuota) {
-      alert({
-        title: `Category 3 requires ${CATEGORY_3_TOTAL_VMS} VMs, but only ${remainingQuota} are available.`,
-        severity: "error"
-      })
+      alert({ title: `Category 3 requires ${CATEGORY_3_TOTAL_VMS} VMs, but only ${remainingQuota} are available.`, severity: "error" });
       return;
     }
 
@@ -641,6 +563,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
       ...(isCat1 && {
         amiId: selectedAmi?.amiId ?? "",
         amiName: selectedAmi?.label ?? "",
+        osType: selectedAmi?.osType ?? "amazon",
       }),
       deploymentMode,
       region,
@@ -689,7 +612,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   }, [category]);
 
   const isAwsDisconnected = awsConfig?.status !== "CONNECTED";
-  const isDisabled = requestedVMs === 0 || isOverQuota || isAwsDisconnected || isSubmitting;
+  const isDisabled = isAwsDisconnected || isSubmitting;
 
   let tooltipMessage = "";
 
@@ -697,10 +620,6 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
     tooltipMessage = "Submitting request...";
   } else if (isAwsDisconnected) {
     tooltipMessage = "AWS Disconnected";
-  } else if (requestedVMs === 0) {
-    tooltipMessage = "Select at least one VM before submitting the request";
-  } else if (isOverQuota) {
-    tooltipMessage = "Requested VMs exceed your quota";
   }
 
   return (
@@ -775,19 +694,31 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
             <Label htmlFor="project">Project Identifier</Label>
             <Input
               id="project"
+              ref={projectIdentifierRef}
               placeholder="e.g., splunk-prod, analytics-lab"
               value={projectIdentifier}
-              onChange={(e) => setProjectIdentifier(e.target.value)}
-              className="bg-muted/50"
+              onChange={(e) => {
+                setProjectIdentifier(e.target.value);
+                if (submitted) {
+                  const v = e.target.value;
+                  if (!v.trim()) setProjectIdentifierError("Project Identifier is required");
+                  else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(v)) setProjectIdentifierError("Only letters, numbers, and hyphens (-), max 32 characters");
+                  else setProjectIdentifierError("");
+                }
+              }}
+              className={`bg-muted/50 ${submitted && projectIdentifierError ? "border-destructive" : ""}`}
               spellCheck={false}
             />
+            {submitted && projectIdentifierError && (
+              <p className="text-xs text-destructive">{projectIdentifierError}</p>
+            )}
             <p className="text-xs text-muted-foreground">
               Project tag for resource tracking
             </p>
           </div>
         </div>
         {category !== 1 && (
-          <div className="mt-6 space-y-3">
+          <div ref={splunkVersionSectionRef} className="mt-6 space-y-3">
             <Label className="flex items-center gap-2">
               <Server className="h-4 w-4" />
               Splunk Version
@@ -795,7 +726,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
 
             <Select
               value={splunkVersion}
-              onValueChange={setSplunkVersion}
+              onValueChange={(v) => { setSplunkVersion(v); if (submitted) setSplunkVersionError(""); }}
             >
               <SelectTrigger className="bg-muted/50">
                 <SelectValue
@@ -818,6 +749,9 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            {submitted && splunkVersionError && (
+              <p className="text-xs text-destructive">{splunkVersionError}</p>
+            )}
 
             <p className="text-xs text-muted-foreground">
               Splunk version to install on provisioned VMs
@@ -1019,7 +953,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div ref={sshKeySectionRef} className="space-y-3">
             <Label className="flex items-center gap-2">
               <Key className="h-4 w-4" />
               SSH Key
@@ -1042,7 +976,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
               <>
                 <Select
                   value={selectedSSHKeyName}
-                  onValueChange={setSelectedSSHKeyName}
+                  onValueChange={(v) => { setSelectedSSHKeyName(v); if (submitted) setSshKeyError(""); }}
                 >
                   <SelectTrigger className="bg-muted/50">
                     <SelectValue
@@ -1061,6 +995,9 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+                {submitted && sshKeyError && (
+                  <p className="text-xs text-destructive">{sshKeyError}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Terraform will use this key for VM access
                 </p>
@@ -1219,6 +1156,9 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                   />
                 );
               })}
+              {submitted && newVMs === 0 && (
+                <p className="text-xs text-destructive">Please select at least one VM role.</p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -1250,9 +1190,18 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
                       <Input
                         placeholder="e.g. app-server-1"
                         value={group.name}
-                        onChange={(e) => updateGroup({ name: e.target.value })}
+                        onChange={(e) => {
+                          updateGroup({ name: e.target.value });
+                          if (submitted && generalGroupErrors[group.id]) {
+                            setGeneralGroupErrors((prev) => { const n = { ...prev }; delete n[group.id]; return n; });
+                          }
+                        }}
                         maxLength={64}
+                        className={submitted && generalGroupErrors[group.id] ? "border-destructive" : ""}
                       />
+                      {submitted && generalGroupErrors[group.id] && (
+                        <p className="text-xs text-destructive mt-1">{generalGroupErrors[group.id]}</p>
+                      )}
                     </div>
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">
@@ -1599,39 +1548,41 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
         </section>
       )}
 
-      <section className="glass-panel rounded-xl p-6">
+      <section ref={justificationRef} className="glass-panel rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <FileText className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Business Justification</h2>
         </div>
 
         <div className="space-y-3">
-          {/* <Label htmlFor="justification">
-            Justification <span className="text-destructive">*</span>
-          </Label> */}
-
           <Textarea
             id="justification"
-            className={`resize-none overflow-y-auto ${justificationTouched && justificationError ? "border-red-500 ring-1 ring-red-200" : ""}`}
+            className="resize-none overflow-y-auto"
             placeholder="Provide a brief justification for this VM request."
             value={justification}
             onChange={(e) => {
               const value = e.target.value;
               setJustification(value);
-              if (justificationTouched) setJustificationError(value.trim().length < 20);
+              if (justificationTouched || submitted) {
+                setJustificationError(value.trim().length < 20 || !/[a-zA-Z]/.test(value.trim()));
+              }
             }}
             onBlur={() => {
               setJustificationTouched(true);
-              setJustificationError(justification.trim().length < 20);
+              setJustificationError(justification.trim().length < 20 || !/[a-zA-Z]/.test(justification.trim()));
             }}
             rows={3}
             maxLength={250}
           />
 
           <div className="flex justify-between items-center mt-1">
-            {justificationTouched && justificationError ? (
-              <div className="text-xs text-red-600">
-                Business justification must contain at least 20 characters.
+            {(justificationTouched || submitted) && justificationError ? (
+              <div className="text-xs text-destructive">
+                {justification.trim().length === 0
+                  ? "Business justification is required."
+                  : !(/[a-zA-Z]/.test(justification.trim()))
+                  ? "Justification must contain meaningful text."
+                  : "Business justification must contain at least 20 characters."}
               </div>
             ) : <span />}
             <p className="text-xs text-muted-foreground">{justification.length}/250</p>
@@ -1641,7 +1592,7 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
 
       {/* Submit */}
       <div className="flex flex-col space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => navigate("/requests")}>
             Cancel
           </Button>
@@ -1683,7 +1634,10 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+          <DialogContent
+            className="sm:max-w-lg max-h-[85vh] flex flex-col"
+            onInteractOutside={(event) => event.preventDefault()}
+          >
             <div className="p-4 pb-4 border-b">
               <DialogHeader className="text-center items-center">
                 <DialogTitle className="text-xl font-semibold text-foreground">

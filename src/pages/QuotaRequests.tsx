@@ -244,32 +244,32 @@ export default function QuotaRequests() {
       switch (decoded.service?.toLowerCase()) {
         case "s3":
           endpoint =
-            `${API_VM_URL}/api/s3-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.bucketService}s3-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "vpc":
           endpoint =
-            `${API_VM_URL}/api/vpc-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.vpcService}/vpc-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "lb":
           endpoint =
-            `${API_VM_URL}/api/lb-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.lbService}/lb-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "route53":
           endpoint =
-            `${API_VM_URL}/api/route53-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.route53Service}/route53-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "rds":
           endpoint =
-            `${API_VM_URL}/api/rds-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.rds}/rds-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "eks":
           endpoint =
-            `${API_VM_URL}/api/eks-quota/approve?token=${encodeURIComponent(jwtToken)}`;
+            `${env.eksClusterService}/eks/eks-quota/approve?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         default:
@@ -319,32 +319,32 @@ export default function QuotaRequests() {
       switch (decoded.service?.toLowerCase()) {
         case "s3":
           endpoint =
-            `${API_VM_URL}/api/s3-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.bucketService}s3-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "vpc":
           endpoint =
-            `${API_VM_URL}/api/vpc-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.vpcService}/vpc-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "lb":
           endpoint =
-            `${API_VM_URL}/api/lb-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.lbService}/lb-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "route53":
           endpoint =
-            `${API_VM_URL}/api/route53-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.route53Service}/route53-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "rds":
           endpoint =
-            `${API_VM_URL}/api/rds-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.rds}/rds-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
 
         case "eks":
           endpoint =
-            `${API_VM_URL}/api/eks-quota/reject?token=${encodeURIComponent(jwtToken)}`;
+            `${env.eksClusterService}/eks/eks-quota/reject?token=${encodeURIComponent(jwtToken)}`;
           break;
         default:
           endpoint =
@@ -395,16 +395,16 @@ export default function QuotaRequests() {
       if (service === "vpc") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/vpc-quota/approve/${reviewDialog.request.id}`
-            : `${API_VM_URL}/api/vpc-quota/deny/${reviewDialog.request.id}`;
+            ? `${env.vpcService}/vpc-quota/approve/${reviewDialog.request.id}`
+            : `${env.vpcService}/vpc-quota/deny/${reviewDialog.request.id}`;
 
         method = "POST";
       }
       else if (service === "lb") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/lb-quota/${reviewDialog.request.id}/approve`
-            : `${API_VM_URL}/api/lb-quota/${reviewDialog.request.id}/deny`;
+            ? `${env.lbService}/lb-quota/${reviewDialog.request.id}/approve`
+            : `${env.lbService}/lb-quota/${reviewDialog.request.id}/deny`;
 
         method = "POST";
       }
@@ -419,32 +419,32 @@ export default function QuotaRequests() {
       else if (service === "rds") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/rds-quota/approve/${reviewDialog.request.id}`
-            : `${API_VM_URL}/api/rds-quota/deny/${reviewDialog.request.id}`;
+            ? `${env.rds}/rds-quota/approve/${reviewDialog.request.id}`
+            : `${env.rds}/rds-quota/deny/${reviewDialog.request.id}`;
 
         method = "POST";
       }
       else if (service === "eks") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/eks-quota/approve/${reviewDialog.request.id}`
-            : `${API_VM_URL}/api/eks-quota/deny/${reviewDialog.request.id}`;
+            ? `${env.eksClusterService}/eks/eks-quota/approve/${reviewDialog.request.id}`
+            : `${env.eksClusterService}/eks/eks-quota/deny/${reviewDialog.request.id}`;
 
         method = "POST";
       }
       else if (service === "s3") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/s3-quota/${reviewDialog.request.id}/approve`
-            : `${API_VM_URL}/api/s3-quota/${reviewDialog.request.id}/reject`;
+            ? `${env.bucketService}s3-quota/${reviewDialog.request.id}/approve`
+            : `${env.bucketService}s3-quota/${reviewDialog.request.id}/reject`;
 
-        method = "PUT";
+        method = "POST";
       }
       else if (service === "route53") {
         endpoint =
           reviewDialog.action === "approved"
-            ? `${API_VM_URL}/api/route53-quota/approve/${reviewDialog.request.id}`
-            : `${API_VM_URL}/api/route53-quota/deny/${reviewDialog.request.id}`;
+            ? `${env.route53Service}/route53-quota/approve/${reviewDialog.request.id}`
+            : `${env.route53Service}/route53-quota/deny/${reviewDialog.request.id}`;
 
         method = "POST";
       }

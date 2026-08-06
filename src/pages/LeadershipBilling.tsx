@@ -329,7 +329,7 @@ export default function Leadership() {
     },
     {
       key: 'launches' as const,
-      label: 'VMs launched today', value: kpis.launchedToday.toLocaleString(),
+      label: 'VMs launched', value: kpis.launchedToday.toLocaleString(),
       sub: `vs ${kpis.launchedYesterday} yesterday`,
       icon: Cpu, color: 'text-sky-400',
       trend: kpis.launchTrend,
@@ -344,7 +344,7 @@ export default function Leadership() {
     },
     {
       key: 'totals' as const,
-      label: 'Total Resources (window)', value: kpis.totalResources.toLocaleString(),
+      label: 'Total Resources', value: kpis.totalResources.toLocaleString(),
       sub: '', icon: Activity, color: 'text-violet-400',
       trend: undefined,
       series: kpiSeries?.totals || [], chartColor: '#8a7bb0', variant: 'area' as const,
@@ -538,7 +538,6 @@ export default function Leadership() {
         open={!!openKpi && openKpi !== 'spend'}
         onOpenChange={(o) => !o && setOpenKpi(null)}
         title={activeKpi?.label || ''}
-        subtitle={activeKpi ? `${activeKpi.value} · ${activeKpi.sub}` : ''}
         data={activeKpi?.series || []}
         variant={activeKpi?.variant || 'bar'}
         color={activeKpi?.chartColor || ''}

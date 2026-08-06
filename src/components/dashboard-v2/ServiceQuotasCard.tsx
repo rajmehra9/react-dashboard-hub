@@ -121,7 +121,7 @@ export function ServiceQuotasCard({
 
           const percent = Math.max(
             (current / maxCount) * 100,
-            4
+            2
           );
 
           return (

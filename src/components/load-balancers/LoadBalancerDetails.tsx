@@ -207,7 +207,6 @@ function ListenersTab({ listeners }: { listeners: LbItem["listeners"] }) {
     <div className="border rounded-lg bg-card">
       <div className="flex justify-between items-center p-4 border-b">
         <h2 className="font-semibold">Listeners and rules</h2>
-        <Button size="sm">Add listener</Button>
       </div>
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/30">

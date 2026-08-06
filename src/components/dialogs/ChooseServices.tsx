@@ -5,7 +5,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useResourceAvailability } from "@/hooks/useResourceAvailability";
 import serviceLimits from "@/config/serviceLimits";
 import {
@@ -293,7 +293,7 @@ export default function ChooseServices({
   const [lbChooserOpen, setLbChooserOpen] = useState(false);
   const navigate = useNavigate();
   const currentUser = useAppStore((s) => s.currentUser);
-  const { available } = useResourceAvailability();
+  const { available, refetch } = useResourceAvailability();
 
   const getServiceQuotaInfo = (serviceId: string) => {
     const availabilityEntry = serviceId === "elb" ? available?.lb : available?.[serviceId as keyof typeof available];
@@ -321,6 +321,11 @@ export default function ChooseServices({
     };
   };
 
+  // Only fetch resource counts when the dialog actually opens
+  useEffect(() => {
+    if (open) refetch();
+  }, [open]);
+
   const handleClose = () => {
     setSelectedService("");
     onClose();
@@ -330,6 +335,7 @@ export default function ChooseServices({
     <>
       <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent
+          onInteractOutside={(event) => event.preventDefault()}
           className="
           max-w-3xl
           p-0

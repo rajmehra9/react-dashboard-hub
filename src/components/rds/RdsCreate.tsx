@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, ChevronDown, XCircle, Pencil, FileText, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,8 @@ export function RdsCreate() {
   const [touched, setTouched] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const identifierRowRef = useRef<HTMLTableRowElement | null>(null);
+  const justificationRef = useRef<HTMLElement | null>(null);
 
   // Editable fields
   const [identifier, setIdentifier] = useState("database-2");
@@ -183,7 +185,17 @@ export function RdsCreate() {
 
     const justificationValidation = validateJustification(justifications);
     setJustificationError(!!justificationValidation);
-    if (hasErrors || justificationValidation) return;
+
+    if (hasErrors || justificationValidation) {
+      setTimeout(() => {
+        if (hasErrors) {
+          identifierRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          justificationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 0);
+      return;
+    }
     setIsDialogOpen(true);
   };
 
@@ -257,7 +269,11 @@ export function RdsCreate() {
                 </thead>
                 <tbody>
                   {rows.map((row, idx) => (
-                    <tr key={idx} className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors">
+                    <tr
+                      key={idx}
+                      ref={idx === 1 ? identifierRowRef : undefined}
+                      className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
+                    >
                       <td className="px-5 py-3 text-sm text-foreground">{row.config}</td>
                       <td className="px-5 py-3">
                         {row.editable ? (
@@ -286,7 +302,7 @@ export function RdsCreate() {
 
 
         {/* Business Justification */}
-        <section className="glass-panel rounded-xl p-6">
+        <section ref={justificationRef} className="glass-panel rounded-xl p-6">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Business Justification</h2>
@@ -295,10 +311,7 @@ export function RdsCreate() {
           <div className="space-y-3">
             <Textarea
               id="justification"
-              className={`w-full resize-none overflow-y-auto rounded-md border bg-background px-3 py-1 text-sm ${justificationTouched && justificationError
-                ? "border-red-500 ring-1 ring-red-200"
-                : "border-input"
-                }`}
+              className={`w-full resize-none overflow-y-auto rounded-md border bg-background px-3 py-1 text-sm border-input`}
               placeholder="Provide a brief justification for this RDS request."
               value={justifications}
               onChange={(e) => {
@@ -330,16 +343,18 @@ export function RdsCreate() {
         </section>
 
         {/* Actions */}
-        <div className="flex justify-between gap-3">
+        <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={() => navigate("/aws/rds")}>Cancel</Button>
-          <Button onClick={onOpenDialog} disabled={!isJustificationValid} className="bg-primary hover:bg-primary/90">
+          <Button onClick={onOpenDialog} className="bg-primary hover:bg-primary/90">
             Create database
           </Button>
         </div>
 
         {/* Confirmation Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
+          <DialogContent 
+            className="sm:max-w-lg max-h-[85vh] flex flex-col"
+            onInteractOutside={(event) => event.preventDefault()}>
             <div className="p-4 pb-4 border-b">
               <DialogHeader className="text-center items-center">
                 <DialogTitle className="text-xl font-semibold text-foreground">

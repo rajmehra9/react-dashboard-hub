@@ -313,7 +313,7 @@ export default function Profile() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>
-                Full Name <span className="text-destructive">*</span>
+                Full Name
               </Label>
 
               <Input

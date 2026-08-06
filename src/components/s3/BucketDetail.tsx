@@ -452,7 +452,7 @@ export function BucketDetail({ bucket, onBack }: { bucket: S3Bucket; onBack: () 
 
           {tab === "Properties" && path.length > 0 && (
             <DetailCard title="Folder overview">
-              <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 text-sm">
                 <DetailField label="AWS Region" value={regionLabel(bucket.region)} />
                 <DetailField label="S3 URI" value={`s3://${bucket.name}/${prefixKey}`} mono copy />
                 <DetailField label="Amazon Resource Name (ARN)" value={`arn:aws:s3:::${bucket.name}/${prefixKey}`} mono copy />
@@ -462,7 +462,7 @@ export function BucketDetail({ bucket, onBack }: { bucket: S3Bucket; onBack: () 
 
           {tab === "Properties" && path.length === 0 && (
             <DetailCard title="Bucket overview">
-              <div className="grid grid-cols-3 gap-x-8 gap-y-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5 text-sm">
                 <DetailField label="AWS Region" value={regionLabel(bucket.region)} />
                 <DetailField label="S3 URI" value={`s3://${bucket.name}`} mono copy />
                 <DetailField label="Amazon Resource Name (ARN)" value={`arn:aws:s3:::${bucket.name}`} mono copy />

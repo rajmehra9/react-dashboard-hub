@@ -660,6 +660,11 @@ export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   DNS_RETRY_FAILED: 'DNS Retry Failed',
   DNS_TERMINATE_RETRY_REQUESTED:'DNS Terminate Requested',
   DNS_TERMINATE_RETRY_FAILED: 'DNS Terminate Failed',
+
+  TG_CREATED: "Created Target Group",
+  TG_DELETED: "Deleted Target Group",
+  TG_DELETE_FAILED: "Target Group Deletion Failed",
+  TG_CREATED_FAILED: "Target Group Creation Failed",
 };
 
 export const ROLE_NAMES = [
@@ -699,6 +704,13 @@ export type AmiOption = {
   value: string;
   label: string;
   amiId: string;
+   osType:
+    | "amazon"
+    | "ubuntu"
+    | "redhat"
+    | "suse"
+    | "debian"
+    | "windows";
   arch: string;
   virtualization: string;
   rootDevice: string;
@@ -709,35 +721,35 @@ export type AmiOption = {
 };
 
 export const OHIO_AMI_OPTIONS: AmiOption[] = [
-  { value: "al2023-kernel-6-18", label: "Amazon Linux 2023 kernel-6.18 AMI", amiId: "ami-078fe7ff43e10cf8c", arch: "64-bit (x86), uefi-preferred", virtualization: "hvm", rootDevice: "ebs",  minimumDiskSize: 10,
+  { value: "al2023-kernel-6-18", label: "Amazon Linux 2023 kernel-6.18 AMI", amiId: "ami-078fe7ff43e10cf8c",osType:'amazon', arch: "64-bit (x86), uefi-preferred", virtualization: "hvm", rootDevice: "ebs",  minimumDiskSize: 10,
    defaultDiskSize: 10,freeTier: true },
   // { value: "macos-tahoe", label: "macOS Tahoe", amiId: "ami-0a6d617045de5f5ac", arch: "64-bit (Mac-Arm)", virtualization: "hvm", rootDevice: "ebs",   minimumDiskSize: 100,
   //   defaultDiskSize: 100, isMacOS:true },
-  { value: "ubuntu-26-04", label: "Ubuntu Server 26.04 LTS(HVM), SSD Volume Type", amiId: "ami-0e5497a77ef21b5ac", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "ubuntu-26-04", label: "Ubuntu Server 26.04 LTS(HVM), SSD Volume Type", amiId: "ami-0e5497a77ef21b5ac", osType: 'ubuntu', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
-  { value: "windows-2025-base", label: "Microsoft Windows Server 2025 Base", amiId: "ami-0daff962b1c050d36", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",   minimumDiskSize: 30,
+  { value: "windows-2025-base", label: "Microsoft Windows Server 2025 Base", amiId: "ami-0daff962b1c050d36",osType: 'windows', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",   minimumDiskSize: 30,
     defaultDiskSize: 30,freeTier: true },
-  { value: "rhel-10-nv", label: "Red Hat Enterprise Linux 10(HVM), SSD Volume Type", amiId: "ami-008f67e1a087a7449", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "rhel-10-nv", label: "Red Hat Enterprise Linux 10(HVM), SSD Volume Type", amiId: "ami-008f67e1a087a7449", osType: 'redhat', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
-  { value: "suse-16", label: "SUSE Linux Enterprise Server 16(HVM), SSD Volume Type", amiId: "ami-00fd5e6c61615bcd0", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "suse-16", label: "SUSE Linux Enterprise Server 16(HVM), SSD Volume Type", amiId: "ami-00fd5e6c61615bcd0", osType: 'suse', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
-  { value: "debian-13", label: "Debian 13(HVM), SSD Volume Type", amiId: "ami-0e68dc81dc36750a1", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "debian-13", label: "Debian 13(HVM), SSD Volume Type", amiId: "ami-0e68dc81dc36750a1", osType: 'debian', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
 ];
 
 export const NVIRGINIA_AMI_OPTIONS: AmiOption[] = [
-  { value: "al2023-kernel-6-18-nv", label: "Amazon Linux 2023 kernel-6.18 AMI", amiId: "ami-0b826bb6d96d2afe4", arch: "64-bit (x86), uefi-preferred", virtualization: "hvm", rootDevice: "ebs", minimumDiskSize: 10,
+  { value: "al2023-kernel-6-18-nv", label: "Amazon Linux 2023 kernel-6.18 AMI", amiId: "ami-0b826bb6d96d2afe4", osType: 'amazon', arch: "64-bit (x86), uefi-preferred", virtualization: "hvm", rootDevice: "ebs", minimumDiskSize: 10,
    defaultDiskSize: 10, freeTier: true },
   // { value: "macos-tahoe", label: "macOS Tahoe", amiId: "ami-01c313e617f4f53dd", arch: "64-bit (Mac-Arm)", virtualization: "hvm", rootDevice: "ebs",   minimumDiskSize: 100,
   //   defaultDiskSize: 100, isMacOS:true },
-  { value: "ubuntu-26-04", label: "Ubuntu Server 26.04 LTS(HVM), SSD Volume Type", amiId: "ami-0b6d9d3d33ba97d99", arch: "64-bit (Arm)", virtualization: "hvm", rootDevice: "ebs", freeTier: true, minimumDiskSize: 10,
+  { value: "ubuntu-26-04", label: "Ubuntu Server 26.04 LTS(HVM), SSD Volume Type", amiId: "ami-0b6d9d3d33ba97d99", osType: 'ubuntu', arch: "64-bit (Arm)", virtualization: "hvm", rootDevice: "ebs", freeTier: true, minimumDiskSize: 10,
    defaultDiskSize: 10, },
-  { value: "windows-2025-base", label: "Microsoft Windows Server 2025 Base", amiId: "ami-013acec81a2c8ff79", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",  minimumDiskSize: 30,
+  { value: "windows-2025-base", label: "Microsoft Windows Server 2025 Base", amiId: "ami-013acec81a2c8ff79", osType: 'windows', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",  minimumDiskSize: 30,
     defaultDiskSize: 30, freeTier: true },
-  { value: "rhel-10-nv", label: "Red Hat Enterprise Linux 10(HVM), SSD Volume Type", amiId: "ami-00adafae70b8029d8", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "rhel-10-nv", label: "Red Hat Enterprise Linux 10(HVM), SSD Volume Type", amiId: "ami-00adafae70b8029d8", osType: 'redhat', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
-  { value: "suse-16", label: "SUSE Linux Enterprise Server 16(HVM), SSD Volume Type", amiId: "ami-0b12a86a613a04fc6", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "suse-16", label: "SUSE Linux Enterprise Server 16(HVM), SSD Volume Type", amiId: "ami-0b12a86a613a04fc6", osType: 'suse', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
-  { value: "debian-13", label: "Debian 13(HVM), SSD Volume Type", amiId: "ami-0b75f821522bcff85", arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
+  { value: "debian-13", label: "Debian 13(HVM), SSD Volume Type", amiId: "ami-0b75f821522bcff85", osType: 'debian', arch: "64-bit (x86)", virtualization: "hvm", rootDevice: "ebs",minimumDiskSize: 10,
 defaultDiskSize: 10, freeTier: true },
 ];

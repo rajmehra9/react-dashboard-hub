@@ -873,7 +873,7 @@ export default function AuditLogs() {
               else if (v === "png") handleExportPNG();
               else if (v === "pdf") handleExportPDF();
             }}>
-              <SelectTrigger className="w-[130px] focus:ring-0 focus:ring-offset-0 cursor-pointer">
+              <SelectTrigger className="w-[130px] focus:ring-0 focus:ring-offset-0 cursor-pointer hover:bg-accent hover:text-accent-foreground">
                 <Download className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Export" />
               </SelectTrigger>

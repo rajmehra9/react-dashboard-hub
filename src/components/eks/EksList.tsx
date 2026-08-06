@@ -261,8 +261,12 @@ export function EksList() {
           />
           <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Monitor className="h-4 w-4 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-400/10">
+                <svg width={15} height={15} viewBox="0 0 20 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path stroke="#FACC15" fillRule="evenodd" clipRule="evenodd" d="M12.4871 7.79611L9.80902 10.8533L12.722 14.1973H11.6349L9.01961 11.193V14.2807H8.23529V7.7193H9.01961V10.4211L11.4435 7.79611H12.4871ZM19.2157 13.9851L16.0784 12.132V7.7193C16.0784 7.5819 16.0047 7.45492 15.8839 7.38583L11.3725 4.79601V1.06218L19.2157 5.6239V13.9851ZM19.8075 5.0712L11.18 0.053659C11.0584 -0.0169725 10.909 -0.0177442 10.7859 0.0505715C10.6639 0.119273 10.5882 0.247413 10.5882 0.385975V5.01755C10.5882 5.15457 10.6624 5.28155 10.7827 5.35103L15.2941 7.94085V12.3509C15.2941 12.4864 15.3667 12.6122 15.4847 12.6817L19.4063 14.9974C19.4682 15.0341 19.538 15.0526 19.6078 15.0526C19.6745 15.0526 19.7412 15.036 19.8012 15.0025C19.9243 14.9341 20 14.8056 20 14.6667V5.40352C20 5.26688 19.9271 5.14067 19.8075 5.0712ZM9.97843 21.1751L0.784314 16.3645V5.6239L8.62745 1.06218V4.80566L4.49529 7.39355C4.38235 7.46457 4.31373 7.5873 4.31373 7.7193V14.2807C4.31373 14.4247 4.39529 14.5567 4.52471 14.6231L9.80039 17.3248C9.91373 17.3827 10.0486 17.3831 10.1616 17.3252L15.28 14.7222L18.4298 16.5826L9.97843 21.1751ZM19.4176 16.2653L15.4961 13.9495C15.3792 13.8808 15.2349 13.8762 15.1141 13.938L9.98235 16.5475L5.09804 14.0464V7.9312L9.2302 5.34331C9.34314 5.27229 9.41177 5.14955 9.41177 5.01755V0.385975C9.41177 0.247413 9.33647 0.119273 9.21412 0.0505715C9.09177 -0.0177442 8.94196 -0.0169725 8.82 0.053659L0.192549 5.0712C0.0733333 5.14067 0 5.26688 0 5.40352V16.5965C0 16.7389 0.08 16.8701 0.207843 16.9373L9.79765 21.955C9.8553 21.9851 9.91843 22 9.98157 22C10.0471 22 10.1122 21.9838 10.1714 21.9516L19.4055 16.9342C19.5282 16.8674 19.6051 16.7412 19.6079 16.6034C19.6102 16.4653 19.5376 16.3364 19.4176 16.2653Z" 
+          fill="#FACC15"
+        />
+    </svg>
               </div>
 
               <div>
@@ -587,7 +591,7 @@ export function EksList() {
             const token = localStorage.getItem("token");
 
             const response = await fetch(
-              `${env.vmRequest}/api/eks-quota/${currentUser?.id}/request`,
+              `${env.eksClusterService}/eks/eks-quota/${currentUser?.id}/request`,
               {
                 method: "POST",
                 headers: {

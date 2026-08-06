@@ -106,6 +106,7 @@ export function VpcDetails({
     defaultRouteTableId: detail.default_route_table_id,
     mainNetworkAcl: detail.main_network_acl_id,
     vpcEncryption: detail.vpc_encryption,
+    vpcStatus: detail.vpc_status ?? detail.status,
   };
 
   const cidr = vpc.cidr as string;
@@ -203,9 +204,9 @@ function DetailsGrid({ vpc, cidr, ownerId }: { vpc: any; cidr: string; ownerId: 
           <CopyText text={vpc.id} />
         </span>
       } />
-      <Field label="Status" value={
+      <Field label="State" value={
         <span className="inline-flex items-center gap-1.5 text-success">
-          <CheckCircle2 size={14} /> {vpc.status}
+          <CheckCircle2 size={14} /> {vpc.vpcStatus}
         </span>
       } />
       <Field label="Block Public Access" value={

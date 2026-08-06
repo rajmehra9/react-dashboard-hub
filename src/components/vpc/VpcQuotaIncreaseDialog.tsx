@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter,
     DialogHeader, DialogTitle,
@@ -44,32 +44,47 @@ export function VpcQuotaIncreaseDialog({
     // Use the new manager hook that handles both active managers and Super Admin fallback
     const { manager, superAdmins, hasActiveManager, loading: managerLoading, error: managerError } = useMyManager();
     const [selectedSuperAdmin, setSelectedSuperAdmin] = useState('');
+    const [quotaTouched, setQuotaTouched] = useState(false);
+    const [reasonTouched, setReasonTouched] = useState(false);
+    const [submitTouched, setSubmitTouched] = useState(false);
 
-    // Determine which email to use for submission
+    useEffect(() => {
+        if (!open) {
+            setQuotaTouched(false);
+            setReasonTouched(false);
+            setSubmitTouched(false);
+        }
+    }, [open]);
+
     const managerEmail = hasActiveManager && manager?.email
         ? manager.email
         : selectedSuperAdmin;
 
-    // Submit is blocked if manager hasn't resolved yet or no email selected
-    const canSubmit =
-        !isMAxREached &&
-        !submitquota &&
-        !managerLoading &&
-        !!managerEmail.trim() &&
-        requestedquota > currentMaxVpcs &&
-        requestedquota <= MAX_VPC_QUOTA &&
-        !quotaError &&
-        !!reason.trim();
-    const reasonError =
-        touched && !reason.trim()
+    const newLimitError = quotaTouched
+        ? requestedquota === 0
+            ? "New limit is required"
+            : quotaError
+        : "";
+    const reasonError = reasonTouched
+        ? !reason.trim()
             ? "Reason is required"
-            : "";
+            : submitTouched && reason.trim().length < 10
+            ? "Reason must be at least 10 characters"
+            : ""
+        : submitTouched && reason.trim().length < 10
+        ? "Reason must be at least 10 characters"
+        : "";
+    const managerError2 = submitTouched && !managerLoading && !managerEmail.trim() ? "Please select an approver" : "";
+
     const resetForm = () => {
         setrequestedquota(0);
         setreason("");
         setQuotaError("");
         setTouched(false);
         setSelectedSuperAdmin("");
+        setQuotaTouched(false);
+        setReasonTouched(false);
+        setSubmitTouched(false);
     };
     return (
         <Dialog
@@ -81,7 +96,9 @@ export function VpcQuotaIncreaseDialog({
                 onOpenChange(open);
             }}
         >
-            <DialogContent className="sm:max-w-md">
+            <DialogContent 
+                className="sm:max-w-md"
+                onInteractOutside={(event) => event.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Request VPC Quota Increase</DialogTitle>
                     <DialogDescription>
@@ -115,11 +132,11 @@ export function VpcQuotaIncreaseDialog({
                                 type="number"
                                 min={currentMaxVpcs + 1}
                                 max={MAX_VPC_QUOTA}
-                                className={quotaError ? "border-red-500" : ""}
+                                className={newLimitError ? "border-red-500" : ""}
                                 value={requestedquota === 0 ? "" : requestedquota}
                                 onChange={(e) => {
                                     const value = e.target.value;
-                                    setTouched(true);
+                                    setQuotaTouched(true);
                                     if (value === "") {
                                         setrequestedquota(0);
                                         setQuotaError("");
@@ -151,13 +168,13 @@ export function VpcQuotaIncreaseDialog({
                                     setQuotaError("");
                                 }}
                             />
-                            {touched && quotaError && <p className="text-sm text-red-500">{quotaError}</p>}
+                            {newLimitError && <p className="text-sm text-red-500">{newLimitError}</p>}
                         </div>
                     </div>
 
                     <div className="space-y-1">
                         <Label htmlFor="reason">
-                            Reason / Justification <span className="text-destructive">*</span>
+                            Reason / Justification
                         </Label>
                         <Textarea
                             id="reason"
@@ -165,7 +182,7 @@ export function VpcQuotaIncreaseDialog({
                             placeholder="Explain why you need additional VPC quota..."
                             value={reason}
                             onChange={(e) => {
-                                setTouched(true);
+                                setReasonTouched(true);
                                 setreason(e.target.value);
                             }}
                         />
@@ -187,6 +204,9 @@ export function VpcQuotaIncreaseDialog({
                         onEmailChange={setSelectedSuperAdmin}
                         label="Manager (Approver)"
                     />
+                    {managerError2 && (
+                        <p className="text-sm text-red-500">{managerError2}</p>
+                    )}
                 </div>
 
                 <DialogFooter>
@@ -203,14 +223,18 @@ export function VpcQuotaIncreaseDialog({
                     <Button
                         onClick={() => {
                             setTouched(true);
-                            if (!reason.trim()) return;
-                            if (quotaError) return;
+                            setQuotaTouched(true);
+                            setReasonTouched(true);
+                            setSubmitTouched(true);
+                            if (requestedquota === 0 || quotaError) return;
                             if (requestedquota <= currentMaxVpcs) return;
                             if (requestedquota > MAX_VPC_QUOTA) return;
+                            if (!reason.trim() || reason.trim().length < 10) return;
+                            if (!managerEmail.trim()) return;
                             onSubmit(managerEmail);
                             resetForm();
                         }}
-                        disabled={!canSubmit}
+                        disabled={isMAxREached || submitquota}
                     >
                         {submitquota ? "Submitting..." : "Submit Request"}
                     </Button>

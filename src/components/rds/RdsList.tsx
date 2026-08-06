@@ -1,8 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Search, Plus, RefreshCw, Trash2, Database, Server,
-  Camera, Bell, Minus, CheckCircle2,
+  Search, Plus, RefreshCw, Trash2, Database, Server, Minus, CheckCircle2,
   AlertCircle, Clock, Monitor, ArrowUpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,13 +11,12 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useDialog } from "@/components/ui/dialog-context";
 import { useRdsClusters, useDeleteRdsCluster } from "@/hooks/useRds";
-import { deleteRdsCluster, type RdsClusterApi } from "@/services/rdsService";
+import { type RdsClusterApi } from "@/services/rdsService";
 import { useAppStore } from "@/store/appStore";
 import { RdsQuotaIncreaseDialog } from "@/components/rds/RdsQuotaIncreaseDialog";
 import { env } from "@/lib/env";
 import { getClientIp } from "@/utils/getClientIP";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { useResourceAvailability } from "@/hooks/useResourceAvailability";
+// import { useResourceAvailability } from "@/hooks/useResourceAvailability";
 import { AuroraIcon } from "@/components/icons/aws-icons";
 
 export type RdsEngine = "Aurora MySQL" | "Aurora PostgreSQL" | "MySQL" | "PostgreSQL" | "MariaDB" | "Oracle" | "SQL Server";
@@ -172,8 +170,8 @@ export function RdsList() {
   const [quotaError, setQuotaError] = useState("");
   const [touched, setTouched] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const { available } = useResourceAvailability();
-  const hasActiveRds = available?.rds?.reached ?? false;
+  // const { available } = useResourceAvailability();
+  const hasActiveRds = userClusterCount >= MAX_RDS;
   console.log(hasActiveRds);
 
   const clusters = rows.filter((r) => r.isCluster);
@@ -353,8 +351,10 @@ export function RdsList() {
           <StatCard icon={<AuroraIcon className="h-4 w-4 text-amber-400" />} iconBg="bg-amber-500/10" value={17.4} label="PSQL Version" />
           <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <Monitor className="h-4 w-4 text-primary" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500/10">
+               <svg width={16} height={16} viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path stroke="#06B6D4" fillRule="evenodd" clipRule="evenodd" d="M1.34121 0.785714L4.99204 4.43654L4.43654 4.99204L0.785714 1.34121V4.32143H0V0.392857C0 0.176 0.175607 0 0.392857 0H4.32143V0.785714H1.34121ZM22 0.392857V4.32143H21.2143V1.34121L17.5635 4.99204L17.008 4.43654L20.6588 0.785714H17.6786V0H21.6071C21.8243 0 22 0.176 22 0.392857ZM21.2143 17.6786H22V21.6071C22 21.824 21.8243 22 21.6071 22H17.6786V21.2143H20.6588L17.008 17.5635L17.5635 17.008L21.2143 20.6588V17.6786ZM21.0179 10.6908C21.0179 9.38693 19.5124 8.09875 16.9911 7.24507L17.2429 6.501C20.141 7.48196 21.8036 9.009 21.8036 10.6908C21.8036 12.373 20.141 13.9005 17.2425 14.881L16.9907 14.1366C19.5124 13.2833 21.0179 11.9955 21.0179 10.6908ZM1.00414 10.6908C1.00414 11.9401 2.41332 13.1941 4.774 14.0458L4.50725 14.7848C1.78161 13.8015 0.218428 12.3094 0.218428 10.6908C0.218428 9.07264 1.78161 7.58057 4.50725 6.59686L4.774 7.33582C2.41332 8.18793 1.00414 9.44193 1.00414 10.6908ZM4.99204 17.5635L1.34121 21.2143H4.32143V22H0.392857C0.175607 22 0 21.824 0 21.6071V17.6786H0.785714V20.6588L4.43654 17.008L4.99204 17.5635ZM11 7.57664C8.19264 7.57664 6.67857 6.85143 6.67857 6.55521C6.67857 6.25861 8.19264 5.53379 11 5.53379C13.807 5.53379 15.3214 6.25861 15.3214 6.55521C15.3214 6.85143 13.807 7.57664 11 7.57664ZM11.0114 10.6193C8.32346 10.6193 6.67857 9.88507 6.67857 9.48554V7.57586C7.64618 8.10975 9.36257 8.36236 11 8.36236C12.6374 8.36236 14.3538 8.10975 15.3214 7.57586V9.48554C15.3214 9.88546 13.6852 10.6193 11.0114 10.6193ZM11.0114 13.6192C8.32346 13.6192 6.67857 12.8849 6.67857 12.4854V10.5529C7.63361 11.1143 9.32721 11.405 11.0114 11.405C12.6861 11.405 14.3699 11.1147 15.3214 10.5549V12.4854C15.3214 12.8853 13.6852 13.6192 11.0114 13.6192ZM11 16.3106C8.20404 16.3106 6.67857 15.5591 6.67857 15.1729V13.5528C7.63361 14.1142 9.32721 14.4049 11.0114 14.4049C12.6861 14.4049 14.3699 14.115 15.3214 13.5548V15.1729C15.3214 15.5591 13.796 16.3106 11 16.3106ZM11 4.74807C8.54032 4.74807 5.89286 5.31339 5.89286 6.55521V15.1729C5.89286 16.4356 8.46214 17.0964 11 17.0964C13.5379 17.0964 16.1071 16.4356 16.1071 15.1729V6.55521C16.1071 5.31339 13.4597 4.74807 11 4.74807Z" fill="#06B6D4" />
+              </svg>
               </div>
 
               <div>
@@ -464,7 +464,7 @@ export function RdsList() {
             const token = localStorage.getItem("token");
 
             const response = await fetch(
-              `${env.vmRequest}/api/rds-quota/${currentUser?.id}/request`,
+              `${env.rds}/rds-quota/${currentUser?.id}/request`,
               {
                 method: "POST",
                 headers: {

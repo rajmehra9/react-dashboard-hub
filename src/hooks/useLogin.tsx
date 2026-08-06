@@ -350,6 +350,13 @@ export function AuthProvider({
       // Case A: Handle Microsoft redirect result
       if (redirectResult) {
         sessionStorage.setItem('msalRedirectHandled', 'true');
+
+        // Read invite/remind tokens BEFORE clearStoredSession wipes them
+        const inviteToken = localStorage.getItem('inviteToken');
+        const inviteEmail = localStorage.getItem('inviteEmail');
+        const remindToken = localStorage.getItem('remindToken');
+        const remindEmail = localStorage.getItem('remindEmail');
+
         clearStoredSession();
         setUser(null);
         setCurrentUser(null);
@@ -366,11 +373,6 @@ export function AuthProvider({
             account: redirectResult.account,
             scopes: loginRequest.scopes,
           })).accessToken;
-
-          const inviteToken = localStorage.getItem('inviteToken');
-          const inviteEmail = localStorage.getItem('inviteEmail');
-          const remindToken = localStorage.getItem('remindToken');
-          const remindEmail = localStorage.getItem('remindEmail');
 
           // Validate Microsoft account matches invited/reminded email
           const expectedEmail = inviteEmail || remindEmail;

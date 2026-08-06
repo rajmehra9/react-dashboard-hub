@@ -98,6 +98,7 @@ export function Sidebar() {
     if (path === "/") return location.pathname === "/";
     if (path === "/requests") return location.pathname === "/requests";
     if (path === "/my-vms") return location.pathname.startsWith("/my-vms") || location.pathname.startsWith("/requests/new");
+    if (path === "/aws/route53") return location.pathname.startsWith("/aws/route53") || location.pathname.startsWith("/aws/hostedzonedetails") || location.pathname.startsWith("/aws/createrecord");
     return location.pathname.startsWith(path);
   };
 

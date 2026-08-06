@@ -279,7 +279,7 @@ export default function HostedZoneDetails() {
           <div className="relative flex-1">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Filter records by property or value..."
+              placeholder="Search records by Request ID or name"
               className="pl-9 bg-card/50 border-border/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -388,26 +388,26 @@ export default function HostedZoneDetails() {
                     <td className="px-5 py-4">{record.routing_policy}</td>
                     <td className="px-5 py-4">{record.is_alias ? "Yes" : "No"}</td>
                     <td className="px-5 py-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 whitespace-pre-line break-all">
+                      <div className="flex items-start justify-start gap-2">
+                        <div className="whitespace-pre-line break-all">
                           {formatRecordValue(record)}
                         </div>
-                        <div className="relative">
-                          {copiedId === record.id && (
-                            <div className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white shadow-lg animate-in fade-in zoom-in-95 duration-200">
-                              Copied!
-                            </div>
-                          )}
-                          <button
-                            onClick={() => copyToClipboard(record.id, formatRecordValue(record))}
-                            className={`flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 ${copiedId === record.id
-                              ? "bg-green-600 text-white"
-                              : "text-muted-foreground hover:bg-green-600 hover:text-white"
-                              }`}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() =>
+                              copyToClipboard(record.id, formatRecordValue(record))
+                            }
                           >
-                            {copiedId === record.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                          </button>
-                        </div>
+                            {copiedId === record.id ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+
+                        
                       </div>
                     </td>
                     <td className="px-5 py-4">{record.ttl ?? "-"}</td>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import serviceLimits from "@/config/serviceLimits";
 import { fetchVpcListApi } from "@/services/vpcService";
 import { fetchBucketsApi } from "@/services/bucketService";
@@ -31,8 +31,8 @@ async function fetchEksCountForUser(userId: number): Promise<number> {
 
 export function useResourceAvailability() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [available, setAvailable] = useState<Record<string, AvailabilityEntry>>({});
+  const [loading, setLoading] = useState(false);
+  const [available, setAvailable] = useState<Record<string, AvailabilityEntry>>({});;
 
   const fetchCounts = useCallback(async () => {
     setLoading(true);
@@ -94,9 +94,6 @@ export function useResourceAvailability() {
     }
   }, [user]);
 
-  useEffect(() => {
-    void fetchCounts();
-  }, [fetchCounts]);
-
+  // No auto-fetch on mount — callers invoke refetch() explicitly when needed
   return { loading, available, limits: serviceLimits, refetch: fetchCounts };
 }

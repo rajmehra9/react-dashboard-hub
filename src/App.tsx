@@ -58,6 +58,7 @@ import HostedZoneDetails from "./components/route-53/HostedZoneDetails";
 import CreateRecord from "./components/route-53/CreateRecord";
 import RolesManagement from "./pages/RolesManagement";
 import ViewRoles from "./components/roles/ViewRoles";
+import { NotificationsProvider } from "@/hooks/useNotificationsContext";
 
 const API_AUTH_BASE = env.auth;
 const queryClient = new QueryClient();
@@ -352,9 +353,11 @@ const App = ({
                 msalRedirectResponseDetected={msalRedirectResponseDetected}
                 msalRedirectError={msalRedirectError}
               >
-                <ErrorBoundary>
-                  <AppRoutes />
-                </ErrorBoundary>
+                <NotificationsProvider>
+                  <ErrorBoundary>
+                    <AppRoutes />
+                  </ErrorBoundary>
+                </NotificationsProvider>
               </AuthProvider>
             </BrowserRouter>
           </ApiErrorBoundary>
