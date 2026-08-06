@@ -259,7 +259,7 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
             </FieldRow>
           )}
 
-          <FieldRow label="Bucket Name" id="bucket-name-field">
+          <FieldRow label="Bucket Name">
             {isDirectory ? (
               <>
                 <p className="text-xs text-muted-foreground mb-2">

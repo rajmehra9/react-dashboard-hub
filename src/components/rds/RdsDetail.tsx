@@ -58,9 +58,9 @@ export function RdsDetail() {
         masterUsername: cluster.master_username ?? "",
         port: instance.port ?? cluster.port ?? 5432,
         availabilityZone: instance.availability_zone ?? "—",
-        subnets: Array.isArray(instance.subnets_json) ? instance.subnets_json as string[] : [],
+        subnets: Array.isArray(instance.subnets_json) ? (instance.subnets_json as unknown as string[]) : [],
         certificateAuthority: instance.ca_certificate_identifier ?? "",
-        certificateAuthorityDate: instance.ca_certificate_expiry ?? "",
+        certificateAuthorityDate: String(instance.ca_certificate_expiry ?? ""),
       }
     : {
         endpoint: cluster.endpoint ?? "",
@@ -547,7 +547,7 @@ export function RdsDetail() {
                       />
                       <ConfigField
                         label="Resource ID"
-                        value={cluster.resource_id ?? "—"}
+                        value={String(cluster.resource_id ?? "—")}
                       />
                       <ConfigField
                         label="Cluster storage configuration"
@@ -742,7 +742,7 @@ export function RdsDetail() {
                       value={
                         cluster.kms_key_id ? (
                           <span className="text-primary text-xs">
-                            {cluster.kms_key_id}
+                            {String(cluster.kms_key_id)}
                           </span>
                         ) : (
                           "AWS owned KMS key"

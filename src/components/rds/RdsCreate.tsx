@@ -204,7 +204,7 @@ export function RdsCreate() {
       cluster_identifier: identifier,
       master_username: username,
       database_name: "postgres",
-      region: "us-east-1",
+      region: "us-east-1" as const,
       min_acu: Number(minCapacity),
       max_acu: Number(maxCapacity),
       auto_pause_seconds: Number(pauseAfter),
