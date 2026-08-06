@@ -41,8 +41,9 @@ export interface RequestDetails {
 }
 
 export interface LogsResponse {
-  logs: string;
+  logs: any;
   status: string;
+  isComplete?: boolean;
 }
 
 function decodeHtmlEntities(str: string): string {
