@@ -9,6 +9,8 @@ import type { AuthenticationResult } from '@azure/msal-browser';
 import { useDialog } from '@/components/ui/dialog-context';
 import { getClientIp } from '@/utils/getClientIP';
 import { microsoftLoginApi } from '@/services/loginApi';
+import { refreshTokenApi } from '@/services/tokenApi';
+import { sessionConfig, ACTIVITY_EVENTS } from '@/config/sessionConfig';
 
 type AuthContextType = {
   user: any;
@@ -91,6 +93,7 @@ function getBackendUserEmail(userData: any): string | undefined {
 function clearStoredSession() {
   localStorage.removeItem('token');
   localStorage.removeItem('clientIp');
+  localStorage.removeItem(sessionConfig.sessionStartKey);
   localStorage.removeItem('inviteToken');
   localStorage.removeItem('inviteEmail');
   localStorage.removeItem('remindToken');
@@ -144,6 +147,8 @@ export function AuthProvider({
   const resetLoginState = () => { 
     loginInProgressRef.current = false;
   };
+  const lastActivityRef = useRef<number>(Date.now());
+  const refreshingRef = useRef(false);
 
   const handleSessionExpired = (reason: string) => {
     clearStoredSession();
@@ -414,6 +419,7 @@ export function AuthProvider({
             sessionStorage.removeItem('msalRedirectHandled');
             sessionStorage.removeItem('activateInvitation_processedToken');
             localStorage.setItem('token', data.token);
+            localStorage.setItem(sessionConfig.sessionStartKey, String(Date.now()));
             sessionStorage.removeItem('emailLoginTriggered');
 
             const ip = await getClientIp();
@@ -517,19 +523,36 @@ export function AuthProvider({
     return () => window.removeEventListener('storage', checkToken);
   }, []);
 
-  // ── Passive session-expiry watchdog ──────────────────────────────────────────
-  // Logs the user out when the JWT expires, even with zero clicks / API calls.
+  // ── Passive session watchdog ─────────────────────────────────────────────────
+  // Handles three independent limits with zero clicks / API calls:
+  //   1. JWT expiry            (token `exp`)
+  //   2. Max session duration  (sessionConfig.maxSessionMs)
+  //   3. Inactivity timeout    (sessionConfig.idleTimeoutMs)
+  // Plus proactive token refresh sessionConfig.refreshLeadMs before expiry.
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let expired = false;
 
-    const expire = () => {
+    const expire = (reason: string) => {
       if (expired) return;
       expired = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
-      handleSessionExpired('SESSION_EXPIRED');
+      handleSessionExpired(reason);
+    };
+
+    const tryRefresh = async (token: string) => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      try {
+        const data = await refreshTokenApi();
+        if (data?.token && data.token !== token) {
+          localStorage.setItem('token', data.token);
+        }
+      } finally {
+        refreshingRef.current = false;
+      }
     };
 
     const schedule = () => {
@@ -537,22 +560,52 @@ export function AuthProvider({
       const token = localStorage.getItem('token');
       if (!token) return;
 
+      // 2. Max session duration
+      if (sessionConfig.maxSessionMs) {
+        const startedRaw = localStorage.getItem(sessionConfig.sessionStartKey);
+        const startedAt = startedRaw ? Number(startedRaw) : Date.now();
+        if (!startedRaw) localStorage.setItem(sessionConfig.sessionStartKey, String(startedAt));
+        if (Date.now() - startedAt >= sessionConfig.maxSessionMs) {
+          expire('MAX_SESSION_REACHED');
+          return;
+        }
+      }
+
+      // 3. Inactivity timeout
+      if (sessionConfig.idleTimeoutMs && Date.now() - lastActivityRef.current >= sessionConfig.idleTimeoutMs) {
+        expire('SESSION_IDLE_TIMEOUT');
+        return;
+      }
+
+      // 1. JWT expiry
       const expiresAt = getTokenExpirationTime(token);
       if (!expiresAt) return; // no exp claim — nothing to watch
 
       const msLeft = expiresAt - Date.now();
       if (msLeft <= 0) {
-        expire();
+        expire('SESSION_EXPIRED');
         return;
       }
+
+      // Proactive refresh shortly before expiry
+      if (msLeft <= sessionConfig.refreshLeadMs) {
+        void tryRefresh(token);
+      }
+
       // setTimeout caps around ~24.8 days; clamp to be safe.
-      timeoutId = setTimeout(schedule, Math.min(msLeft, 60_000));
+      timeoutId = setTimeout(schedule, Math.min(msLeft, sessionConfig.watchdogIntervalMs));
     };
 
     // Fallback poll: catches system sleep/clock jumps where timers are throttled.
-    intervalId = setInterval(schedule, 15_000);
+    intervalId = setInterval(schedule, sessionConfig.watchdogIntervalMs);
 
     const onWake = () => schedule();
+    const onActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+    ACTIVITY_EVENTS.forEach((evt) =>
+      window.addEventListener(evt, onActivity, { passive: true })
+    );
     window.addEventListener('focus', onWake);
     window.addEventListener('pageshow', onWake);
     document.addEventListener('visibilitychange', onWake);
@@ -562,6 +615,7 @@ export function AuthProvider({
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       if (intervalId) clearInterval(intervalId);
+      ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, onActivity));
       window.removeEventListener('focus', onWake);
       window.removeEventListener('pageshow', onWake);
       document.removeEventListener('visibilitychange', onWake);
