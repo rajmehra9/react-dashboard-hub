@@ -517,6 +517,58 @@ export function AuthProvider({
     return () => window.removeEventListener('storage', checkToken);
   }, []);
 
+  // ── Passive session-expiry watchdog ──────────────────────────────────────────
+  // Logs the user out when the JWT expires, even with zero clicks / API calls.
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let expired = false;
+
+    const expire = () => {
+      if (expired) return;
+      expired = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      handleSessionExpired('SESSION_EXPIRED');
+    };
+
+    const schedule = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const expiresAt = getTokenExpirationTime(token);
+      if (!expiresAt) return; // no exp claim — nothing to watch
+
+      const msLeft = expiresAt - Date.now();
+      if (msLeft <= 0) {
+        expire();
+        return;
+      }
+      // setTimeout caps around ~24.8 days; clamp to be safe.
+      timeoutId = setTimeout(schedule, Math.min(msLeft, 60_000));
+    };
+
+    // Fallback poll: catches system sleep/clock jumps where timers are throttled.
+    intervalId = setInterval(schedule, 15_000);
+
+    const onWake = () => schedule();
+    window.addEventListener('focus', onWake);
+    window.addEventListener('pageshow', onWake);
+    document.addEventListener('visibilitychange', onWake);
+
+    schedule();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('pageshow', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // ── MSAL disabled render ─────────────────────────────────────────────────────
   if (!msalEnabled) {
     return (
