@@ -49,13 +49,17 @@ export function LoadBalancersList() {
   const nav = useNavigate();
   const { alert, confirm } = useDialog();
   const user = useAppStore((s: any) => s.currentUser);
-  const MAX_LBS = user?.maxLoadBalancers ?? 1;
+  const MAX_LBS = user?.maxLoadBalancers ?? 2;
   const [lbs, setLbs] = useState<LbItem[]>([]);
-  const userLoadBalancerCount = lbs.filter(
-    (lb: any) =>
-      Number(lb.user_id) === Number(user?.id) ||
-      Number(lb.userId) === Number(user?.id)
-  ).length;
+  const userLbs = lbs.filter((lb: any) =>
+    Number(lb.user_id) === Number(user?.id) ||
+    Number(lb.userId) === Number(user?.id)
+  );
+  const userLoadBalancerCount = userLbs.length;
+  const albCount = userLbs.filter((lb) => String(lb.type).toLowerCase() === "application").length;
+  const nlbCount = userLbs.filter((lb) => String(lb.type).toLowerCase() === "network").length;
+  const totalQuotaEvenlyDivisible = MAX_LBS > 0 && Number.isInteger(MAX_LBS / 2);
+  const maxPerType = totalQuotaEvenlyDivisible ? MAX_LBS / 2 : 0;
   const [loading, setLoading] = useState(true);
   const [chooserOpen, setChooserOpen] = useState(false);
   const [showQuotaDialog, setShowQuotaDialog] = useState(false);
@@ -77,8 +81,12 @@ export function LoadBalancersList() {
     if (showLoading) setLoading(true);
     try {
       const res = await lbApi.list();
-      console.log("LB API Response", (res as any).data);
-      setLbs((res as any).data ?? []);
+      const data = Array.isArray((res as any)?.data)
+        ? (res as any).data
+        : Array.isArray(res)
+          ? res
+          : [];
+      setLbs(data);
     } catch {
       console.error("Failed to fetch load balancers");
     } finally {
@@ -250,8 +258,8 @@ export function LoadBalancersList() {
     pending: "Pending",
     provisioning: "Provisioning",
     creating: "Creating",
-    completed: "Completed",
-    active: "Completed",
+    completed: "Active",
+    active: "Active",
     failed: "Failed",
     destroying: "Destroying",
     deleting: "Deleting",
@@ -264,8 +272,7 @@ export function LoadBalancersList() {
   };
 
   const rows: LbRow[] = useMemo(() =>
-    lbs .filter((lb) => lb.status === "completed") 
-      .map((lb) => ({
+    lbs.map((lb) => ({
       id: lb.id,
       requestId: lb.request_id ?? "-",
       name: lb.name,
@@ -326,13 +333,16 @@ export function LoadBalancersList() {
 
   // provisioningLb.type tells us which kind is currently mid-flight
   const quotaReached = userLoadBalancerCount >= MAX_LBS;
-  const albBlocked = !!provisioningAlb || quotaReached;
-  const nlbBlocked = !!provisioningNlb || quotaReached;
+  const invalidQuotaSplit = !totalQuotaEvenlyDivisible;
+  const isCreateDisabled = quotaReached || invalidQuotaSplit;
+  const albBlocked = !!provisioningAlb || quotaReached || invalidQuotaSplit || albCount >= maxPerType;
+  const nlbBlocked = !!provisioningNlb || quotaReached || invalidQuotaSplit || nlbCount >= maxPerType;
 
-  const isCreateDisabled = quotaReached;
-  const createDisabledReason = isCreateDisabled
+  const createDisabledReason = quotaReached
     ? `Load Balancer quota reached (${MAX_LBS}).`
-    : null;
+    : invalidQuotaSplit
+      ? `Load Balancer quota (${MAX_LBS}) must be evenly split between ALB and NLB.`
+      : undefined;
 
   // const allSelected = sorted.length > 0 && sorted.every((r) => selected.has(r.id));
   // const toggleAll = () => {
@@ -362,7 +372,7 @@ export function LoadBalancersList() {
           <StatCard
             icon={<Scale className="h-4 w-4 text-primary" />}
             iconBg="bg-primary/10"
-            value={rows.filter((r) => r.state === "Completed").length}
+            value={rows.filter((r) => r.state === "Active").length}
             label="Total LBs"
           />
 
@@ -626,14 +636,22 @@ export function LoadBalancersList() {
             ? `"${provisioningAlb.name}" is still provisioning.`
             : quotaReached
               ? `Load Balancer quota reached (${MAX_LBS}).`
-              : undefined
+              : invalidQuotaSplit
+                ? `Load Balancer quota (${MAX_LBS}) must be evenly split between ALB and NLB.`
+                : albCount >= maxPerType
+                  ? `ALB quota reached (${maxPerType}).`
+                  : undefined
         }
         nlbDisabledReason={
           provisioningNlb
             ? `"${provisioningNlb.name}" is still provisioning.`
             : quotaReached
               ? `Load Balancer quota reached (${MAX_LBS}).`
-              : undefined
+              : invalidQuotaSplit
+                ? `Load Balancer quota (${MAX_LBS}) must be evenly split between ALB and NLB.`
+                : nlbCount >= maxPerType
+                  ? `NLB quota reached (${maxPerType}).`
+                  : undefined
         }
       />
 

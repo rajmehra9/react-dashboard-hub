@@ -126,7 +126,9 @@ export function LoadBalancerDetails({
             <div>
               <p className="text-muted-foreground">Status</p>
               <p className={`${statusClassName} font-medium`}>
-                {lb.status.charAt(0).toUpperCase() + lb.status.slice(1)}
+                {['completed', 'active'].includes(lb.status?.toLowerCase())
+                  ? 'Active'
+                  : lb.status.charAt(0).toUpperCase() + lb.status.slice(1)}
               </p>
               <p className="mt-5 text-muted-foreground">IP address type</p>
               <p>{lb.ip_address_type}</p>

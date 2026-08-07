@@ -2,7 +2,8 @@ import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import { getCurrentUser } from '@/services/authService';
+import { getCurrentUser, refreshAuthToken } from '@/services/authService';
+import { authSessionConfig } from '../config/authSessionConfig';
 import { useAppStore } from '@/store/appStore';
 import { loginRequest } from '@/auth/msalConfig';
 import type { AuthenticationResult } from '@azure/msal-browser';
@@ -138,6 +139,9 @@ export function AuthProvider({
   const [error, setError] = useState<string | undefined>(undefined);
   const setCurrentUser = useAppStore((s) => s.setCurrentUser);
   const loginInProgressRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
+  const inactivityTimerRef = useRef<number | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
   const { instance, accounts } = useMsal();
 
   const clearError = () => setError(undefined);
@@ -299,6 +303,88 @@ export function AuthProvider({
       instance.setActiveAccount(accounts[0]);
     }
   }, [accounts, instance, msalEnabled]);
+
+  // ── Refresh active token before expiry and handle inactivity logout ───────────
+  useEffect(() => {
+    const resetInactivityTimer = () => {
+      lastActivityRef.current = Date.now();
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+      }
+      inactivityTimerRef.current = window.setTimeout(() => {
+        console.log('[AuthProvider] Inactivity timeout reached');
+        handleSessionExpired('SESSION_EXPIRED');
+      }, authSessionConfig.inactivityTimeoutMs);
+    };
+
+    const scheduleRefresh = (tokenToUse?: string | null) => {
+      if (!user) return;
+      const token = tokenToUse ?? localStorage.getItem('token');
+      if (!token) return;
+
+      const expirationTime = getTokenExpirationTime(token);
+      if (!expirationTime) return;
+
+      const refreshLeadTime = authSessionConfig.refreshLeadTimeMs;
+      const timeUntilExpiry = expirationTime - Date.now();
+      const delay = Math.max(timeUntilExpiry - refreshLeadTime, 0);
+
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+
+      refreshTimerRef.current = window.setTimeout(async () => {
+        const lastActivity = Date.now() - lastActivityRef.current;
+        if (lastActivity >= authSessionConfig.inactivityTimeoutMs) {
+          handleSessionExpired('SESSION_EXPIRED');
+          return;
+        }
+
+        try {
+          const newToken = await refreshAuthToken();
+          if (newToken) {
+            scheduleRefresh(newToken);
+          } else {
+            handleSessionExpired('SESSION_EXPIRED');
+          }
+        } catch {
+          handleSessionExpired('SESSION_EXPIRED');
+        }
+      }, delay);
+    };
+
+    if (!user) {
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      return;
+    }
+
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'keydown'];
+    activityEvents.forEach((event) => {
+      document.addEventListener(event, resetInactivityTimer, true);
+    });
+
+    resetInactivityTimer();
+    scheduleRefresh(localStorage.getItem('token'));
+
+    return () => {
+      activityEvents.forEach((event) => document.removeEventListener(event, resetInactivityTimer, true));
+      if (refreshTimerRef.current) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      if (inactivityTimerRef.current) {
+        window.clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+    };
+  }, [user, msalEnabled]);
 
   // ── Main auth initialisation (runs once on mount) ────────────────────────────
   useEffect(() => {
@@ -516,6 +602,58 @@ export function AuthProvider({
     window.addEventListener('storage', checkToken);
     return () => window.removeEventListener('storage', checkToken);
   }, []);
+
+  // ── Passive session-expiry watchdog ──────────────────────────────────────────
+  // Logs the user out when the JWT expires, even with zero clicks / API calls.
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let expired = false;
+
+    const expire = () => {
+      if (expired) return;
+      expired = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      handleSessionExpired('SESSION_EXPIRED');
+    };
+
+    const schedule = async () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const expiresAt = getTokenExpirationTime(token);
+      if (!expiresAt) return; // no exp claim — nothing to watch
+
+      const msLeft = expiresAt - Date.now();
+      if (msLeft <= 0) {
+        expire();
+        return;
+      }
+      // setTimeout caps around ~24.8 days; clamp to be safe.
+      timeoutId = setTimeout(schedule, Math.min(msLeft, 60_000));
+    };
+
+    // Fallback poll: catches system sleep/clock jumps where timers are throttled.
+    intervalId = setInterval(schedule, 15_000);
+
+    const onWake = () => void schedule();
+    window.addEventListener('focus', onWake);
+    window.addEventListener('pageshow', onWake);
+    document.addEventListener('visibilitychange', onWake);
+
+    void schedule();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('pageshow', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   // ── MSAL disabled render ─────────────────────────────────────────────────────
   if (!msalEnabled) {

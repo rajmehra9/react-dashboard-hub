@@ -436,7 +436,7 @@ export default function QuotaRequests() {
         endpoint =
           reviewDialog.action === "approved"
             ? `${env.bucketService}s3-quota/${reviewDialog.request.id}/approve`
-            : `${env.bucketService}s3-quota/${reviewDialog.request.id}/reject`;
+            : `${env.bucketService}s3-quota/${reviewDialog.request.id}/deny`;
 
         method = "POST";
       }

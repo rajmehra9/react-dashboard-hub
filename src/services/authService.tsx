@@ -87,14 +87,13 @@ async function getClientIp(): Promise<string> {
 }
 if (!interceptorAttached) {
   axios.interceptors.request.use(async (config) => {
-    config.headers = config.headers || {};
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.set("Authorization", `Bearer ${token}`);
     }
     const ip = await getClientIp();
     if (ip) {
-      config.headers['x-client-ip'] = ip;
+      config.headers.set("x-client-ip", ip);
     }
     return config;
   });

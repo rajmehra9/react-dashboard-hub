@@ -21,7 +21,7 @@ import { AuroraIcon } from "@/components/icons/aws-icons";
 
 export type RdsEngine = "Aurora MySQL" | "Aurora PostgreSQL" | "MySQL" | "PostgreSQL" | "MariaDB" | "Oracle" | "SQL Server";
 export type RdsRole = "Regional cluster" | "Writer instance" | "Reader instance" | "Standalone";
-export type RdsStatus = "Available" | "Creating" | "Deleting" | "Stopped" | "Modifying";
+export type RdsStatus = "Available" | "Creating" | "Deleting" | "Stopped" | "Modifying" | "Provisioning" | "Terminating" | "Terminated";
 
 export type RdsRow = {
   id: string;
@@ -61,11 +61,11 @@ function normaliseEngine(engine: string): RdsEngine {
 function normaliseStatus(status: string): RdsStatus {
   const s = status.toLowerCase();
   if (s === "available") return "Available";
-  if (s === "creating" || s === "provisioning") return "Creating";
-  if (s === "deleting" || s === "destroying") return "Deleting";
+  if (s === "creating" || s === "provisioning") return "Provisioning";
+  if (s === "deleting" || s === "destroying") return "Terminating";
   if (s === "stopped") return "Stopped";
   if (s === "modifying") return "Modifying";
-  if (s === "deleted" || s === "destroyed" || s === "failed") return "Deleting";
+  if (s === "deleted" || s === "destroyed") return "Terminated";
   return "Available";
 }
 
@@ -107,8 +107,8 @@ function clusterToRows(cluster: RdsClusterApi): RdsRow[] {
 function StatusBadge({ status }: { status: RdsStatus }) {
   const map: Record<RdsStatus, { cls: string; icon: ReactNode }> = {
     Available: { cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: <CheckCircle2 size={11} /> },
-    Creating: { cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: <Clock size={11} /> },
-    Deleting: { cls: "bg-red-500/10 text-red-400 border-red-500/20", icon: <AlertCircle size={11} /> },
+    Provisioning: { cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: <Clock size={11} /> },
+    Terminating: { cls: "bg-orange-500/10 text-orange-400 border-red-500/20", icon: <AlertCircle size={11} /> },
     Stopped: { cls: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: <AlertCircle size={11} /> },
     Modifying: { cls: "bg-purple-500/10 text-purple-400 border-purple-500/20", icon: <Clock size={11} /> },
   };
@@ -161,6 +161,12 @@ export function RdsList() {
     (cluster: any) =>
       Number(cluster.user_id) === Number(currentUser?.id) ||
       Number(cluster.userId) === Number(currentUser?.id)
+  ).length;
+  const userStatusProvisioning = apiClusters.filter(
+    (cluster: any) =>
+      (Number(cluster.user_id) === Number(currentUser?.id) ||
+        Number(cluster.userId) === Number(currentUser?.id)) &&
+      (cluster.cluster_status.toLowerCase() === "provisioning" || cluster.cluster_status.toLowerCase() === "creating")
   ).length;
   const [query, setQuery] = useState("");
   const [showQuotaDialog, setShowQuotaDialog] = useState(false);
@@ -311,7 +317,7 @@ export function RdsList() {
             {!isInstance && (
               <button
                 onClick={() => handleDelete(row)}
-                disabled={isDeletingCluster || row.status === "Deleting"}
+                disabled={isDeletingCluster || row.status === "Terminating"}
                 className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Trash2 size={15} />
@@ -335,7 +341,8 @@ export function RdsList() {
   );
 
   const quotaReached =
-    userClusterCount >= MAX_RDS;
+    userClusterCount >= MAX_RDS || userStatusProvisioning > 0;
+    console.log("count", userStatusProvisioning);
   return (
     <div>
       <Header
