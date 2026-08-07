@@ -84,7 +84,13 @@ const recordCountByZoneName = (zoneName: string) =>
   const ipRecordsCount = records.filter(recordHasIPv4Value).length;
 
   const [usedRecords, setUsedRecords] = useState(0);
-  const rows = data.filter(x => x.name.toLowerCase().includes(search.toLowerCase()));
+  const query = search.trim().toLowerCase();
+  const rows = data.filter((x) =>
+    !query ||
+    [x.name, x.type, x.id, x.createdBy].some((f) =>
+      f.toLowerCase().includes(query)
+    )
+  );
   const totalRecords = usedRecords;
   const remainingQuota = Math.max(
     0,
