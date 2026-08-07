@@ -103,7 +103,7 @@ class ApiClient {
   async get<T>(
     baseUrl: string,
     path: string,
-    params?: Record<string, string>,
+    params?: any,
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeader();
@@ -131,7 +131,7 @@ class ApiClient {
   async post<T>(
     baseUrl: string,
     path: string,
-    params?: Record<string, string>,
+    params?: any,
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeader();
@@ -159,7 +159,7 @@ class ApiClient {
   async patch<T>(
     baseUrl: string,
     path: string,
-    params?: Record<string, string>,
+    params?: any,
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeader();
@@ -187,7 +187,7 @@ class ApiClient {
   async put<T>(
     baseUrl: string,
     path: string,
-    params?: Record<string, string>,
+    params?: any,
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeader();
@@ -215,7 +215,7 @@ class ApiClient {
   async delete<T>(
     baseUrl: string,
     path: string,
-    params?: Record<string, string>,
+    params?: any,
   ): Promise<T> {
     try {
       const headers = await this.getAuthHeader();
