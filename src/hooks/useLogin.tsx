@@ -151,7 +151,6 @@ export function AuthProvider({
   const resetLoginState = () => { 
     loginInProgressRef.current = false;
   };
-  const lastActivityRef = useRef<number>(Date.now());
   const refreshingRef = useRef(false);
 
   const handleSessionExpired = (reason: string) => {
