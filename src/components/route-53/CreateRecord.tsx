@@ -575,17 +575,22 @@ const validateTtl = (value: string) => {
                     rows={2}
                     value={value}
                     onChange={(e) => {
-                      setValue(e.target.value);
+                      const next =
+                        recordType === "A"
+                          ? sanitizeIPv4Input(e.target.value)
+                          : e.target.value;
+                      setValue(next);
                       if (submitted) {
-                        const lines = parseValueEntries(e.target.value);
+                        const lines = parseValueEntries(next);
                         const dups = findDuplicates(lines);
                         const invIps = recordType === "A" ? findInvalidIPv4s(lines) : [];
                         if (lines.length === 0) setValueError("At least one value is required.");
                         else if (dups.length > 0) setValueError(`Duplicate value: ${dups.join(", ")}`);
-                        else if (invIps.length > 0) setValueError(`Invalid IPv4: ${invIps.map((ip) => `'${ip}'`).join(", ")}`);
+                        else if (invIps.length > 0) setValueError(`Invalid IPv4: ${ipv4ErrorMessage(invIps)}`);
                         else setValueError("");
                       }
                     }}
+                    inputMode={recordType === "A" ? "decimal" : undefined}
                     placeholder={`3.17.183.49`}
                     className="resize-none"
                   />
@@ -594,11 +599,13 @@ const validateTtl = (value: string) => {
                     <p className="text-sm text-destructive">{valueError}</p>
                   ) : invalidIps.length > 0 ? (
                     <p className="text-sm text-destructive">
-                      Invalid IPv4 address: {invalidIps.map((ip) => `'${ip}'`).join(", ")}
+                      Invalid IPv4 address: {ipv4ErrorMessage(invalidIps)}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Enter one value per line. For alias records, use the toggle above.
+                      {recordType === "A"
+                        ? "Enter one IPv4 address per line — 4 octets, each between 0 and 255 (e.g. 3.17.183.49)."
+                        : "Enter one value per line. For alias records, use the toggle above."}
                     </p>
                   )}
                 </div>
