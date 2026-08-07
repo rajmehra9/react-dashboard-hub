@@ -46,6 +46,7 @@ export const env = {
   feedback: import.meta.env.VITE_FEEDBACK_SERVICE_URL,
   runtime: import.meta.env.VITE_RUNTIME_SERVICE_URL,
   lbService: import.meta.env.VITE_LB_SERVICE_URL,
+  loadBalancer: import.meta.env.VITE_LB_SERVICE_URL,
   route53Service: import.meta.env.VITE_ROUTE53_SERVICE_URL,
   socket: import.meta.env.VITE_SOCKET_URL,
   entraClientId: import.meta.env.VITE_ENTRA_CLIENT_ID,
