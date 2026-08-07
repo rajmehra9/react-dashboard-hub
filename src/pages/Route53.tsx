@@ -200,6 +200,8 @@ const recordCountByZoneName = (zoneName: string) =>
             <Input
               placeholder="Search by hosted zone name, type, or id..."
               className="pl-9 bg-background/50"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
@@ -248,39 +250,48 @@ const recordCountByZoneName = (zoneName: string) =>
               </thead>
 
               <tbody>
-                <tr className="border-b border-border/40 hover:bg-accent/20 transition-colors">
-                  <td className="px-5 py-4">
-                    <Link
-                      to="/aws/hostedzonedetails"
-                      className="font-medium text-primary hover:underline"
+                {rows.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-5 py-8 text-center text-muted-foreground"
                     >
-                      prusplunk.com
-                    </Link>
-                  </td>
+                      No hosted zones match your search.
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((zone) => (
+                    <tr
+                      key={zone.id}
+                      className="border-b border-border/40 hover:bg-accent/20 transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <Link
+                          to="/aws/hostedzonedetails"
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {zone.name}
+                        </Link>
+                      </td>
 
-                  <td className="px-5 py-4">
-                    Public
-                  </td>
+                      <td className="px-5 py-4">{zone.type}</td>
 
-                  <td className="px-5 py-4">
-                    Route 53
-                  </td>
+                      <td className="px-5 py-4">{zone.createdBy}</td>
 
-                  <td className="px-5 py-4">
-                   {statsLoading ? "-" : recordCountByZoneName("prusplunk.com")}
-                  </td>
+                      <td className="px-5 py-4">
+                        {statsLoading ? "-" : recordCountByZoneName(zone.name)}
+                      </td>
 
-                  <td className="px-5 py-4 text-muted-foreground">
-                    Hosted zone created by Route53 Registrar
-                  </td>
+                      <td className="px-5 py-4 text-muted-foreground">
+                        {zone.description}
+                      </td>
 
-                  <td className="px-5 py-4 font-mono text-muted-foreground">
-                    Z27YR27SJSDXLT
-                  </td>
-                </tr>
-
-                <tr className="border-b border-border/40 hover:bg-accent/20 transition-colors">
-                </tr>
+                      <td className="px-5 py-4 font-mono text-muted-foreground">
+                        {zone.id}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
