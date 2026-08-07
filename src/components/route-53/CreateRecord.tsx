@@ -733,7 +733,7 @@ const validateTtl = (value: string) => {
                     const invIps = recordType === "A" ? findInvalidIPv4s(lines) : [];
                     if (lines.length === 0) valErr = "At least one value is required.";
                     else if (dups.length > 0) valErr = `Duplicate value: ${dups.join(", ")}`;
-                    else if (invIps.length > 0) valErr = `Invalid IPv4: ${invIps.map((ip) => `'${ip}'`).join(", ")}`;
+                    else if (invIps.length > 0) valErr = `Invalid IPv4: ${ipv4ErrorMessage(invIps)}`;
                     else if (ttlError) valErr = ttlError;
                     setValueError(valErr);
                     if (valErr) valid = false;
