@@ -114,6 +114,32 @@ function findInvalidIPv4s(values: string[]): string[] {
   return values.filter((v) => !isValidIPv4(v));
 }
 
+/** Human-readable reason why an IPv4 entry is invalid. */
+function ipv4Reason(ip: string): string {
+  if (/[^\d.]/.test(ip)) return "only digits and dots are allowed";
+  const parts = ip.split(".");
+  if (parts.length !== 4) return "must have 4 octets (e.g. 3.17.183.49)";
+  if (parts.some((p) => p === "")) return "each octet must have a value";
+  const tooBig = parts.filter((p) => Number(p) > 255);
+  if (tooBig.length > 0) return "each octet must be between 0 and 255";
+  if (parts.some((p) => p.length > 1 && p.startsWith("0"))) return "octets cannot have leading zeros";
+  return "is not a valid IPv4 address";
+}
+
+function ipv4ErrorMessage(invalid: string[]): string {
+  return invalid
+    .map((ip) => `'${ip}' — ${ipv4Reason(ip)}`)
+    .join("; ");
+}
+
+/** Keep only characters valid in a newline-separated list of IPv4 addresses. */
+function sanitizeIPv4Input(raw: string): string {
+  return raw
+    .split("\n")
+    .map((line) => line.replace(/[^\d.]/g, ""))
+    .join("\n");
+}
+
 
 
 export default function CreateRecord() {
