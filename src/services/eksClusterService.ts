@@ -1,5 +1,6 @@
 import { apiClient, env } from '@/lib/api';
 import type { ApiResponse } from '@/types/api';
+import type { EksClusterDetail } from '@/components/eks/eksTypes';
 
 export interface DeleteEksClusterResponse {
   message?: string;
@@ -47,4 +48,19 @@ export async function getClusterResources(
     { type },
   );
   return res.data ?? [];
+}
+
+export async function getEksClusterDetails(
+  clusterName: string,
+): Promise<EksClusterDetail> {
+  const res = await apiClient.get<ApiResponse<EksClusterDetail>>(
+    env.eksClusterService,
+    `/eks/${encodeURIComponent(clusterName)}/details`,
+  );
+
+  if (res?.status !== 'SUCCESS' || !res.data) {
+    throw new Error(res?.message || 'Failed to load cluster details');
+  }
+
+  return res.data;
 }
