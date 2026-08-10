@@ -134,7 +134,7 @@ export const CategorySplitChart = ({ data }) => {
                         setActiveIndex(index);
                         setDonutHover({
                           name: entry.name, 
-                          value: Number(entry.value), 
+                          value: entry.value, 
                           fill: entry.color,
                           x: e?.clientX ?? 0, 
                           y: e?.clientY ?? 0,

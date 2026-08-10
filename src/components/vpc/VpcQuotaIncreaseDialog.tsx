@@ -232,7 +232,6 @@ export function VpcQuotaIncreaseDialog({
                             if (!reason.trim() || reason.trim().length < 10) return;
                             if (!managerEmail.trim()) return;
                             onSubmit(managerEmail);
-                            resetForm();
                         }}
                         disabled={isMAxREached || submitquota}
                     >

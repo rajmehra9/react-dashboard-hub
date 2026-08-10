@@ -41,9 +41,8 @@ export interface RequestDetails {
 }
 
 export interface LogsResponse {
-  logs: any;
+  logs: string;
   status: string;
-  isComplete?: boolean;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -68,9 +67,13 @@ const normalizeStatus = (status: string) => {
     case "PENDING":
       return "pending";
     case "DESTROYING":
+    case "TERMINATING":
       return "terminating";
     case "DESTROYED":
+    case "TERMINATED":
       return "terminated";
+    case "ACTIVE":
+      return "completed";
     case "RETRYING":
       return "retrying";
     case "RETRYING_TERMINATE":
@@ -93,11 +96,12 @@ export async function fetchActiveRequestsApi(): Promise<ActiveRequest[]> {
    return requests
     .filter((r: any) => {
       if (!r.logs_cleared_at) return true;
+      if (r.has_terminating_vms) return true;
+      // Show if any activity happened after the logs were cleared
+      // (covers destroy/delete AND individual EC2 instance terminations)
       return (
         r.updated_at &&
-        new Date(r.updated_at) > new Date(r.logs_cleared_at) &&
-        (r.last_operation === "destroy" || r.last_operation === "delete" ||
-          r.status === "destroying" || r.status === "destroyed")
+        new Date(r.updated_at) > new Date(r.logs_cleared_at)
       );
     })
     .map((r: any) => ({ ...r }));
@@ -144,11 +148,11 @@ const SERVICE_ENDPOINTS: Record<string, ServiceEndpoints> = {
   },
   "eks-cluster-service": {
     base: env.eksClusterService,
-   //details: (name) => `/eks/${name}`,
+    details: (id) => `/eks/request/${id}`,
     logs: (id) => `/eks/${id}/logs`,
     download: (id) => `/eks/${id}/logs/download`,
     clearLogs: (id) => `/eks/${id}/logs`,
-    live: (id) => `/eks/${id}/logs/live`,  
+    live: (id) => `/eks/${id}/logs/live`,
   },
   "rds-service": {
     base: env.rds,

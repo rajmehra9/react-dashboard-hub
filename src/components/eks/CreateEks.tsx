@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, FileText, ChevronDown, Settings, ServerCog } from "lucide-react";
 import { fetchVpcListApi, fetchVpcDetailsApi } from "@/services/vpcService";
+import { checkEksClusterName } from "@/services/eksClusterService";
 import { getClientIp } from "@/utils/getClientIP";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -94,8 +95,28 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [nameError, setNameError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [nameExistsError, setNameExistsError] = useState("");
+  const [nameCheckLoading, setNameCheckLoading] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const justificationRef = useRef<HTMLDivElement>(null);
+
+  // Load VPCs if not already loaded
+  useEffect(() => {
+    if (!name.trim()) { setNameExistsError(""); return; }
+    setNameCheckLoading(true);
+    setNameExistsError("");
+    const timer = setTimeout(async () => {
+      try {
+        const { exists } = await checkEksClusterName(name.trim(), regionCode);
+        setNameExistsError(exists ? `Cluster name "${name.trim()}" already exists in ${regionCode}.` : "");
+      } catch {
+        // silently ignore
+      } finally {
+        setNameCheckLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [name, regionCode]);
 
   // Load VPCs if not already loaded
   useEffect(() => {
@@ -378,11 +399,18 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
     }}
     placeholder="my-eks-cluster"
     className={`w-full bg-input/40 border rounded-md px-3 py-2 text-sm ${
-      submitted && nameError ? "border-destructive" : "border-border"
+      nameError ? "border-destructive" : "border-border"
     }`}
   />
-  {submitted && nameError && (
+  {nameError && (
     <p className="mt-1 text-xs text-destructive">{nameError}</p>
+  )}
+  {!nameError && (
+    nameCheckLoading
+      ? <p className="mt-1 text-xs text-muted-foreground">Checking...</p>
+      : nameExistsError
+        ? <p className="mt-1 text-xs text-destructive">{nameExistsError}</p>
+        : null
   )}
 </Field>
 
@@ -509,12 +537,8 @@ export function CreateEks({ onClose }: { onClose?: () => void } = {}) {
             onClick={() => {
               setSubmitted(true);
               setJustificationTouched(true);
-              let currentNameError = nameError;
-              if (!name.trim()) {
-                currentNameError = "Cluster name is required";
-                setNameError(currentNameError);
-              }
-              const nameErr = !!currentNameError;
+              if (!name.trim()) setNameError("Cluster name is required");
+              const nameErr = !!nameError || (!name.trim()) || !!nameExistsError || nameCheckLoading;
               const justErr = businessJustification.trim().length < 20;
               setJustificationError(justErr);
               if (nameErr || !vpc || subnetIds.length === 0 || justErr) {

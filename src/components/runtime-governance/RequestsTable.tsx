@@ -33,10 +33,15 @@ export function RequestsTable({
     const req = row.representativeRow;
     const requesterRole = req.requester_role ?? '';
     const requesterEmail = req.requester_email?.trim().toLowerCase() ?? '';
+    const managerEmail = req.manager_email?.trim().toLowerCase() ?? '';
 
     if (currentUserRole === 'SuperAdmin') return true;
     if (currentUserRole === 'SplunkOps.Admin') {
       return requesterRole === 'SplunkOps.User' && requesterEmail !== currentUserEmail;
+    }
+    // Approver can act on requests where they are the assigned manager
+    if (currentUserRole === 'SplunkOps.Approver') {
+      return managerEmail === currentUserEmail.trim().toLowerCase();
     }
     return false;
   }

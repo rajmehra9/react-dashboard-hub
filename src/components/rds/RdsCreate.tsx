@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { ChevronRight, ChevronDown, XCircle, Pencil, FileText, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from "sonner";
 import { useProvisionRds } from "@/hooks/useRds";
+import { checkRdsIdentifier } from "@/services/rdsService";
 import { useAppStore } from "@/store/appStore";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { type AwsRegion } from '@/services/rdsService';
 
 type Row = {
   config: string;
@@ -17,7 +27,15 @@ type Row = {
   modifiable: string;
   editable?: boolean;
   field?: "identifier" | "username" | "minCapacity" | "maxCapacity" | "pauseAfter";
-};
+}; 
+
+const REGIONS: { value: AwsRegion; label: string }[] = [
+  { value: "us-east-2", label: "US East (Ohio)" },
+  { value: "us-east-1", label: "US East (N. Virginia)" },
+];
+
+
+
 
 export function RdsCreate() {
   const navigate = useNavigate();
@@ -40,7 +58,31 @@ export function RdsCreate() {
   const [justifications, setJustifications] = useState("");
   const [justificationError, setJustificationError] = useState(false);
   const [justificationTouched, setJustificationTouched] = useState(false);
+  const [identifierExistsError, setIdentifierExistsError] = useState("");
+  const [identifierCheckLoading, setIdentifierCheckLoading] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<AwsRegion>("us-east-2");
+
+  useEffect(() => {
+    if (!identifier.trim()) { setIdentifierExistsError(""); return; }
+    setIdentifierCheckLoading(true);
+    setIdentifierExistsError("");
+    const timer = setTimeout(async () => {
+      try {
+        const { exists } = await checkRdsIdentifier(identifier.trim(), selectedRegion);
+        setIdentifierExistsError(exists ? `Cluster identifier "${identifier.trim()}" already exists in ${selectedRegion}.` : "");
+      } catch {
+        // silently ignore
+      } finally {
+        setIdentifierCheckLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [identifier, selectedRegion]);
   const isJustificationValid = justifications.trim().length >= 20;
+
+
+
+
 
   const validateJustification = (value: string) => {
     if (value.trim().length < 20) {
@@ -115,7 +157,7 @@ export function RdsCreate() {
     { config: "Storage configuration", value: "Aurora Standard*", modifiable: "Yes" },
     { config: "Encryption", value: "Enabled with AWS/RDS owned key", modifiable: "No" },
     { config: "Internet access gateway", value: "Enabled", modifiable: "No" },
-    { config: "Private access/VPC", value: "Disabled/No VPC used", modifiable: "No" },
+    { config: "Private access/VPC", value: "Enabled / splunk-poc VPC", modifiable: "No" },
     { config: "Authentication", value: "IAM only", modifiable: "No" },
   ];
 
@@ -149,6 +191,13 @@ export function RdsCreate() {
               <XCircle size={12} className="shrink-0" />
               {err}
             </div>
+          )}
+          {!err && row.field === "identifier" && (
+            identifierCheckLoading
+              ? <p className="text-xs text-muted-foreground mt-1">Checking...</p>
+              : identifierExistsError
+                ? <div className="flex items-center gap-1 text-destructive text-xs mt-1"><XCircle size={12} className="shrink-0" />{identifierExistsError}</div>
+                : null
           )}
         </div>
       );
@@ -186,9 +235,10 @@ export function RdsCreate() {
     const justificationValidation = validateJustification(justifications);
     setJustificationError(!!justificationValidation);
 
-    if (hasErrors || justificationValidation) {
+    if (hasErrors || justificationValidation || identifierExistsError || identifierCheckLoading) {
       setTimeout(() => {
-        if (hasErrors) {
+        if (hasErrors || identifierExistsError || identifierCheckLoading) {
+          setOpen(true);
           identifierRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
         } else {
           justificationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -204,7 +254,7 @@ export function RdsCreate() {
       cluster_identifier: identifier,
       master_username: username,
       database_name: "postgres",
-      region: "us-east-1" as const,
+      region:selectedRegion,
       min_acu: Number(minCapacity),
       max_acu: Number(maxCapacity),
       auto_pause_seconds: Number(pauseAfter),
@@ -228,7 +278,9 @@ export function RdsCreate() {
       />
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground px-6 py-3">
-        <Link to="/aws/rds" className="hover:text-foreground transition-colors">RDS</Link>
+        <Link to="/aws/rds" className="hover:text-foreground transition-colors">
+          RDS
+        </Link>
         <ChevronRight size={14} />
         <span className="text-foreground">Create DB Cluster</span>
       </div>
@@ -244,6 +296,22 @@ export function RdsCreate() {
           <p className="text-sm text-muted-foreground mb-5">
             Aurora PostgreSQL with Serverless instance (Version 17)
           </p>
+          <div className="space-y-3 mb-4">
+            <Label>AWS Region</Label>
+            <Select value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as AwsRegion)}>
+              <SelectTrigger className="bg-muted/50">
+                <SelectValue placeholder="Select Region" />
+              </SelectTrigger>
+
+              <SelectContent>
+                {REGIONS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Configuration details collapsible */}
           <button
@@ -260,11 +328,15 @@ export function RdsCreate() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/20 text-xs text-muted-foreground">
-                    <th className="px-5 py-3 text-left font-medium w-[220px]">Configuration</th>
+                    <th className="px-5 py-3 text-left font-medium w-[220px]">
+                      Configuration
+                    </th>
                     <th className="px-5 py-3 text-left font-medium">
                       <span className="flex items-center gap-1">Value</span>
                     </th>
-                    <th className="px-5 py-3 text-left font-medium w-[200px]">Modifiable post-creation</th>
+                    <th className="px-5 py-3 text-left font-medium w-[200px]">
+                      Modifiable post-creation
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,18 +346,28 @@ export function RdsCreate() {
                       ref={idx === 1 ? identifierRowRef : undefined}
                       className="border-b border-border last:border-0 hover:bg-muted/10 transition-colors"
                     >
-                      <td className="px-5 py-3 text-sm text-foreground">{row.config}</td>
+                      <td className="px-5 py-3 text-sm text-foreground">
+                        {row.config}
+                      </td>
                       <td className="px-5 py-3">
                         {row.editable ? (
                           getEditInput(row)
                         ) : (
                           <div>
-                            <div className="text-sm text-foreground">{row.value}</div>
-                            {row.hint && <p className="text-xs text-muted-foreground mt-0.5">{row.hint}</p>}
+                            <div className="text-sm text-foreground">
+                              {row.value}
+                            </div>
+                            {row.hint && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {row.hint}
+                              </p>
+                            )}
                           </div>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-sm text-muted-foreground">{row.modifiable}</td>
+                      <td className="px-5 py-3 text-sm text-muted-foreground">
+                        {row.modifiable}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -295,7 +377,8 @@ export function RdsCreate() {
 
           {/* Pricing note */}
           <p className="text-xs text-muted-foreground mt-5">
-            *Aurora Capacity Unit (ACU) pricing is $0.12 per ACU-Hour and storage is $0.10 per GB-month.
+            *Aurora Capacity Unit (ACU) pricing is $0.12 per ACU-Hour and
+            storage is $0.10 per GB-month.
           </p>
         </section>
 
@@ -336,71 +419,104 @@ export function RdsCreate() {
                 <div className="text-xs text-red-600">
                   Business justification must contain at least 20 characters.
                 </div>
-              ) : <span />}
-              <p className="text-xs text-muted-foreground">{justifications.length}/250</p>
+              ) : (
+                <span />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {justifications.length}/250
+              </p>
             </div>
           </div>
         </section>
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => navigate("/aws/rds")}>Cancel</Button>
-          <Button onClick={onOpenDialog} className="bg-primary hover:bg-primary/90">
+          <Button variant="outline" onClick={() => navigate("/aws/rds")}>
+            Cancel
+          </Button>
+          <Button
+            onClick={onOpenDialog}
+            className="bg-primary hover:bg-primary/90"
+          >
             Create database
           </Button>
         </div>
 
         {/* Confirmation Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent 
+          <DialogContent
             className="sm:max-w-lg max-h-[85vh] flex flex-col"
-            onInteractOutside={(event) => event.preventDefault()}>
+            onInteractOutside={(event) => event.preventDefault()}
+          >
             <div className="p-4 pb-4 border-b">
               <DialogHeader className="text-center items-center">
                 <DialogTitle className="text-xl font-semibold text-foreground">
                   Confirm RDS Database Request
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground mt-2">
-                  Please review the details below before submitting your request.
+                  Please review the details below before submitting your
+                  request.
                 </DialogDescription>
               </DialogHeader>
             </div>
             <div className="space-y-4 mt-4 text-sm overflow-y-auto model-scroll-hide flex-1 px-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">DB Engine</p>
-                  <p className="font-medium text-foreground">Aurora PostgreSQL</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    DB Engine
+                  </p>
+                  <p className="font-medium text-foreground">
+                    Aurora PostgreSQL
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Engine Version</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Engine Version
+                  </p>
                   <p className="font-medium text-foreground">Version 17</p>
                 </div>
               </div>
 
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs text-muted-foreground mb-1">DB Cluster Identifier</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  DB Cluster Identifier
+                </p>
                 <p className="font-medium text-foreground">{identifier}</p>
               </div>
 
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Master Username</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Master Username
+                </p>
                 <p className="font-medium text-foreground">{username}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Min Capacity</p>
-                  <p className="font-medium text-foreground">{acu(minCapacity)}</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Min Capacity
+                  </p>
+                  <p className="font-medium text-foreground">
+                    {acu(minCapacity)}
+                  </p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Max Capacity</p>
-                  <p className="font-medium text-foreground">{acu(maxCapacity)}</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Max Capacity
+                  </p>
+                  <p className="font-medium text-foreground">
+                    {acu(maxCapacity)}
+                  </p>
                 </div>
               </div>
 
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Pause After Inactivity</p>
-                <p className="font-medium text-foreground">{pauseAfter} seconds</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Pause After Inactivity
+                </p>
+                <p className="font-medium text-foreground">
+                  {pauseAfter} seconds
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -409,9 +525,17 @@ export function RdsCreate() {
                   <p className="font-medium text-foreground">Aurora Standard</p>
                 </div>
                 <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Encryption</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Encryption
+                  </p>
                   <p className="font-medium text-foreground">Enabled</p>
                 </div>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                <p className="text-xs text-muted-foreground mb-1">Region</p>
+                <p className="font-medium text-foreground">
+                  {REGIONS.find((r) => r.value === selectedRegion)?.label}
+                </p>
               </div>
 
               <div className="p-3 rounded-lg bg-muted/50 border border-border">
@@ -433,10 +557,7 @@ export function RdsCreate() {
                     Go Back & Edit
                   </Button>
 
-                  <Button
-                    onClick={handleCreate}
-                    disabled={isSubmitting}
-                  >
+                  <Button onClick={handleCreate} disabled={isSubmitting}>
                     {isSubmitting ? "Creating..." : "Confirm & Submit"}
                   </Button>
                 </DialogFooter>
@@ -444,7 +565,6 @@ export function RdsCreate() {
             </div>
           </DialogContent>
         </Dialog>
-
       </div>
     </div>
   );

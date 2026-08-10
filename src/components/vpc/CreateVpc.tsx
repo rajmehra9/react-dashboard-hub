@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "../ui/input";
-import { fetchVpcListApi } from "@/services/vpcService";
+import { fetchVpcListApi, checkVpcNameApi } from "@/services/vpcService";
 
 
 type ResourcesMode = "vpc-only" | "vpc-and-more";
@@ -131,7 +131,30 @@ export function CreateVpc({ onClose }: { onClose?: () => void } = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false); 
   const [hasActiveVpc, setHasActiveVpc] = useState(false);
   const [existingVpcs, setExistingVpcs] = useState<Array<{ name: string; region: string }>>([]);
+  const [nameExistsError, setNameExistsError] = useState("");
+  const [nameCheckLoading, setNameCheckLoading] = useState(false);
   const currentUser = useAppStore((s) => s.currentUser);
+
+  const REGION_CODE_MAP: Record<string, string> = {
+    "US East (Ohio)": "us-east-2",
+    "US East (N. Virginia)": "us-east-1",
+  };
+
+  useEffect(() => {
+    const rawName = mode === "vpc-only" ? name : autoName;
+    const trimmed = rawName.trim();
+    if (!trimmed) { setNameExistsError(""); return; }
+    const regionCode = REGION_CODE_MAP[region] ?? region;
+    const proposedName = mode === "vpc-only" ? trimmed : `${trimmed}-vpc`;
+    setNameCheckLoading(true);
+    const timer = setTimeout(() => {
+      checkVpcNameApi(proposedName, regionCode)
+        .then(({ exists }) => setNameExistsError(exists ? `A VPC named "${proposedName}" already exists in ${region}.` : ""))
+        .catch(() => setNameExistsError(""))
+        .finally(() => setNameCheckLoading(false));
+    }, 500);
+    return () => { clearTimeout(timer); setNameCheckLoading(false); };
+  }, [name, autoName, mode, region]);
 
 useEffect(() => {
   if (!currentUser) return;
@@ -375,7 +398,7 @@ useEffect(() => {
     const currentName = mode === "vpc-only" ? name : autoName;
     const nameValidation = validateNameWithDuplicateCheck(currentName, mode);
     setNameError(nameValidation);
-    if (nameValidation) {
+    if (nameValidation || nameExistsError || nameCheckLoading) {
       valid = false;
     }
 
@@ -602,6 +625,8 @@ const create = async () => {
                 setNameError={setNameError}
                 validateName={validateName}
                 nameInputRef={nameInputRef}
+                nameExistsError={nameExistsError}
+                nameCheckLoading={nameCheckLoading}
                 ipv4Mode={ipv4Mode}
                 setIpv4Mode={setIpv4Mode}
                 ipv4Cidr={ipv4Cidr}
@@ -681,6 +706,10 @@ const create = async () => {
                     <p className="text-xs text-red-500">
                       {nameError}
                     </p>
+                  ) : nameCheckLoading ? (
+                    <p className="text-xs text-muted-foreground">Checking name availability...</p>
+                  ) : nameExistsError ? (
+                    <p className="text-xs text-red-500">{nameExistsError}</p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       Enter a value for the Name tag. This value will be used to auto-generate
@@ -932,7 +961,7 @@ const create = async () => {
                   <Segmented
                     value={azCount}
                     options={[1, 2, 3]}
-                    onChange={(v) => setAzCount(Number(v))}
+                    onChange={setAzCount}
                   />
                 </Field>
 
@@ -978,7 +1007,7 @@ const create = async () => {
                   <Segmented
                     value={publicCount}
                     options={publicOptions}
-                    onChange={(v) => setPublicCount(Number(v))}
+                    onChange={setPublicCount}
                   />
                 </Field>
 
@@ -990,7 +1019,7 @@ const create = async () => {
                   <Segmented
                     value={privateCount}
                     options={privateOptions}
-                    onChange={(v) => setPrivateCount(Number(v))}
+                    onChange={setPrivateCount}
                   />
                 </Field>
 
@@ -1427,6 +1456,7 @@ function cidrSize(cidr: string) {
 function VpcOnlyFields(p: any) {
   const {
     name, setName, nameError, setNameError, validateName, nameInputRef,
+    nameExistsError, nameCheckLoading,
     ipv4Mode, setIpv4Mode, ipv4Cidr, setIpv4Cidr,ipv4CidrError,
     ipv4IpamPool, setIpv4IpamPool, ipv4IpamNetmask, setIpv4IpamNetmask,
     ipv6Mode, setIpv6Mode, ipv6IpamPool, setIpv6IpamPool,
@@ -1459,6 +1489,12 @@ function VpcOnlyFields(p: any) {
           {nameError ? (
             <div className="mt-1 flex items-center gap-1 text-xs text-red-500"><XCircle size={14} className="mt-0.5 shrink-0" />
               <p className="text-xs text-red-500">{nameError}</p>
+            </div>
+          ) : nameCheckLoading ? (
+            <p className="text-xs text-muted-foreground">Checking name availability...</p>
+          ) : nameExistsError ? (
+            <div className="mt-1 flex items-center gap-1 text-xs text-red-500"><XCircle size={14} className="mt-0.5 shrink-0" />
+              <p className="text-xs text-red-500">{nameExistsError}</p>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">

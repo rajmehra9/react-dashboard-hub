@@ -75,6 +75,14 @@ const IP_CACHE_DURATION = 5 * 60 * 1000;
 async function getClientIp(): Promise<string> {
   const now = Date.now();
   if (cachedClientIp && (now - ipCacheTimestamp) < IP_CACHE_DURATION) return cachedClientIp;
+
+  const storedIp = localStorage.getItem('clientIp');
+  if (storedIp) {
+    cachedClientIp = storedIp;
+    ipCacheTimestamp = now;
+    return storedIp;
+  }
+
   try {
     const res = await fetch('https://api.ipify.org?format=json');
     const data = await res.json();

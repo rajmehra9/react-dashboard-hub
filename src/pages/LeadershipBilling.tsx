@@ -307,7 +307,6 @@ export default function Leadership() {
 
     const totals = kpiDataFromAPI.totalVMs.last7Days.map((d) => ({
       label: format(new Date(d.date), 'EEE'),
-      value: (d.ec2 || 0) + (d.vpc || 0) + (d.s3 || 0) + (d.lb || 0) + (d.rds || 0) + (d.route53 || 0) + (d.eks || 0),
       ec2: d.ec2 || 0,
       vpc: d.vpc || 0,
       s3: d.s3 || 0,

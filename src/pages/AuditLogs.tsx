@@ -40,7 +40,7 @@ import {
   Network,
   Boxes,
 } from "lucide-react";
-import { CATEGORY_DISPLAY_LABELS, ACTION_DISPLAY_LABELS } from "@/types";
+import { AUDIT_CATEGORIES, CATEGORY_DISPLAY_LABELS, ACTION_DISPLAY_LABELS } from "@/types";
 import {
   useAuditLogs,
   useAuditFilters,
@@ -70,24 +70,24 @@ const CATEGORY_BADGE_CONFIG: Record<
     className: string;
   }
 > = {
-  Auth: {
+  [AUDIT_CATEGORIES.AUTH]: {
     icon: Shield,
     className: "bg-blue-500/15 text-blue-400 border border-blue-500/25",
   },
-  "AWS Ops": {
+  [AUDIT_CATEGORIES.AWS_OPS]: {
     icon: Server,
     className:
       "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25",
   },
-  "User Mgmt": {
+  [AUDIT_CATEGORIES.USER_MGMT]: {
     icon: Users,
     className: "bg-pink-500/15 text-pink-400 border border-pink-500/25",
   },
-  Settings: {
+  [AUDIT_CATEGORIES.SETTINGS]: {
     icon: Settings,
     className: "bg-orange-500/15 text-orange-400 border border-orange-500/25",
   },
-  Requests: {
+  [AUDIT_CATEGORIES.REQUESTS]: {
     icon: FileText,
     className: "bg-indigo-500/15 text-indigo-400 border border-indigo-500/25",
   },
@@ -190,36 +190,36 @@ const getUniqueAwsServices = () => {
 // ─── Category config for stat cards ──────────────────────────────────────────
 const CATEGORY_CONFIG = [
   {
-    key: "Auth",
-    label: "Auth",
+    key: AUDIT_CATEGORIES.AUTH,
+    label: AUDIT_CATEGORIES.AUTH,
     icon: Shield,
     color: "text-blue-400",
     bg: "bg-blue-500/10",
   },
   {
-    key: "AWS Ops",
-    label: "AWS Ops",
+    key: AUDIT_CATEGORIES.AWS_OPS,
+    label: AUDIT_CATEGORIES.AWS_OPS,
     icon: Server,
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
   },
   {
-    key: "User Mgmt",
-    label: "User Mgmt",
+    key: AUDIT_CATEGORIES.USER_MGMT,
+    label: AUDIT_CATEGORIES.USER_MGMT,
     icon: Users,
     color: "text-pink-400",
     bg: "bg-pink-500/10",
   },
   {
-    key: "Settings",
-    label: "Settings",
+    key: AUDIT_CATEGORIES.SETTINGS,
+    label: AUDIT_CATEGORIES.SETTINGS,
     icon: Settings,
     color: "text-orange-400",
     bg: "bg-orange-500/10",
   },
   {
-    key: "Requests",
-    label: "Requests",
+    key: AUDIT_CATEGORIES.REQUESTS,
+    label: AUDIT_CATEGORIES.REQUESTS,
     icon: FileText,
     color: "text-indigo-400",
     bg: "bg-indigo-500/10",

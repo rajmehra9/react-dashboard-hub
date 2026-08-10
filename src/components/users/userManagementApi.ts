@@ -29,7 +29,7 @@ export function normalizeUser(u: RawUserApiResponse): User {
   }
 
   // Type guard for role
-  const validRoles: Role[] = ['SuperAdmin', 'SplunkOps.Admin', 'SplunkOps.User', 'SplunkOps.Auditor', 'SplunkOps.Stakeholder'];
+  const validRoles: Role[] = ['SuperAdmin', 'SplunkOps.Admin', 'SplunkOps.User', 'SplunkOps.Auditor', 'SplunkOps.Stakeholder', 'SplunkOps.Approver'];
   const role: Role = validRoles.includes(u.role as Role) ? (u.role as Role) : 'SplunkOps.User';
 
   // Type guard for status

@@ -10,8 +10,6 @@ import type { AuthenticationResult } from '@azure/msal-browser';
 import { useDialog } from '@/components/ui/dialog-context';
 import { getClientIp } from '@/utils/getClientIP';
 import { microsoftLoginApi } from '@/services/loginApi';
-import { refreshTokenApi } from '@/services/tokenApi';
-import { sessionConfig, ACTIVITY_EVENTS } from '@/config/sessionConfig';
 
 type AuthContextType = {
   user: any;
@@ -94,7 +92,6 @@ function getBackendUserEmail(userData: any): string | undefined {
 function clearStoredSession() {
   localStorage.removeItem('token');
   localStorage.removeItem('clientIp');
-  localStorage.removeItem(sessionConfig.sessionStartKey);
   localStorage.removeItem('inviteToken');
   localStorage.removeItem('inviteEmail');
   localStorage.removeItem('remindToken');
@@ -151,8 +148,6 @@ export function AuthProvider({
   const resetLoginState = () => { 
     loginInProgressRef.current = false;
   };
-  const lastActivityRef = useRef<number>(Date.now());
-  const refreshingRef = useRef(false);
 
   const handleSessionExpired = (reason: string) => {
     clearStoredSession();
@@ -505,7 +500,6 @@ export function AuthProvider({
             sessionStorage.removeItem('msalRedirectHandled');
             sessionStorage.removeItem('activateInvitation_processedToken');
             localStorage.setItem('token', data.token);
-            localStorage.setItem(sessionConfig.sessionStartKey, String(Date.now()));
             sessionStorage.removeItem('emailLoginTriggered');
 
             const ip = await getClientIp();

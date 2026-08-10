@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAppStore } from '@/store/appStore';
 import { useAuth } from "@/hooks/useLogin";
-import { isAdmin, canViewDashboard, canViewAuditLogs, canViewFinOps } from "@/utils/roles";
+import { isAdmin, canViewDashboard, canViewAuditLogs, canViewFinOps, canApproveRequests } from "@/utils/roles";
 import { FinOpsIcon } from "@/components/icons/FinOpsIcon";
 import { EC2Icon, S3Icon, VPCIcon, LBIcon, Route53Icon, RDSIcon, EKSIcon } from "@/components/icons/aws-icons";
 
@@ -67,8 +67,8 @@ const navGroups: { label?: string; items: NavItem[] }[] = [
       // {to: "/rolesmanagement", icon: UserCog, label: "Role Management", adminOnly: true },
       { to: "/auditlogs", icon: ScrollText, label: "Audit Logs",visibleTo: canViewAuditLogs },
       { to: "/leadership-billing", icon: FinOpsIcon, label: "FinOps", visibleTo: canViewFinOps},
-      { to: "/admin/runtime-governance", icon: Clock, label: "Runtime Governance", adminOnly: true },
-      { to: "/admin/quota-requests", icon: ArrowUpCircle, label: "Quota Requests", adminOnly: true },
+      { to: "/admin/runtime-governance", icon: Clock, label: "Runtime Governance", visibleTo: canApproveRequests },
+      { to: "/admin/quota-requests", icon: ArrowUpCircle, label: "Quota Requests", visibleTo: canApproveRequests },
       { to: "/admin/feedback", icon: MessageSquarePlus, label: "Feedback Mgmt", adminOnly: true },
        { to: "/feedback", icon: MessageSquarePlus, label: "Feedback" },
       { to: "/settings", icon: Settings, label: "Settings" },

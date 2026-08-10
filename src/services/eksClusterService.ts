@@ -6,6 +6,15 @@ export interface DeleteEksClusterResponse {
   data?: { requestId?: string; status?: string };
 }
 
+export async function checkEksClusterName(name: string, region: string): Promise<{ exists: boolean }> {
+  const res = await apiClient.get<{ exists: boolean }>(
+    env.eksClusterService,
+    `/eks/check-name`,
+    { name, region }
+  );
+  return res ?? { exists: false };
+}
+
 export async function deleteEksClusterService(requestId: string): Promise<DeleteEksClusterResponse> {
   return apiClient.delete<DeleteEksClusterResponse>(env.eksClusterService, `/eks/${encodeURIComponent(requestId)}`);
 }

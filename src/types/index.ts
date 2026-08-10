@@ -1,4 +1,4 @@
-export type Role = "SplunkOps.Admin" | "SplunkOps.User" | "SuperAdmin" | "SplunkOps.Auditor" | "SplunkOps.Stakeholder";
+export type Role = "SplunkOps.Admin" | "SplunkOps.User" | "SuperAdmin" | "SplunkOps.Auditor" | "SplunkOps.Stakeholder" | "SplunkOps.Approver";
 
 export interface User {
   id: string;
@@ -503,15 +503,20 @@ export const ROLE_LABELS: Record<string, string> = {
   "SplunkOps.Admin": "Admin",
   "SplunkOps.User": "User",
   "SplunkOps.Auditor": "Auditor",
-  "SplunkOps.Stakeholder": "Stakeholder"
+  "SplunkOps.Stakeholder": "Stakeholder",
+  "SplunkOps.Approver": "Approver"
 };
-export const CATEGORY_DISPLAY_LABELS: Record<string, string> = {
-  "Auth": "Auth",
-  "AWS Ops": "AWS Ops",
-  "User Mgmt": "User Mgmt",
-  Settings: "Settings",
-  Requests: "Requests",
-};
+export const AUDIT_CATEGORIES = {
+  AUTH: "Auth",
+  AWS_OPS: "AWS Ops",
+  USER_MGMT: "User Mgmt",
+  SETTINGS: "Settings",
+  REQUESTS: "Requests",
+} as const;
+
+export const CATEGORY_DISPLAY_LABELS: Record<string, string> = Object.fromEntries(
+  Object.values(AUDIT_CATEGORIES).map((v) => [v, v])
+);
 
 export const ACTION_DISPLAY_LABELS: Record<string, string> = {
   USER_LOGIN: "Login",

@@ -41,9 +41,9 @@ export function CopyIconButton({
   );
 }
 
-export function Section({ title, info, children, icon }: { title: string; info?: boolean; children: React.ReactNode; icon?: React.ReactNode }) {
+export function Section({ title, info, children, icon, id }: { title: string; info?: boolean; children: React.ReactNode; icon?: React.ReactNode; id?: string }) {
   return (
-    <section className="glass-panel rounded-xl p-6">
+    <section id={id} className="glass-panel rounded-xl p-6">
       <div className="flex items-center gap-2 mb-4">
         <span>{icon}</span>
         <h3 className="text-base font-semibold">{title}</h3>

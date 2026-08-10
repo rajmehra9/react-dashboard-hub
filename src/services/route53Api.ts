@@ -85,14 +85,18 @@ export interface CreateRoute53RecordResponse {
 export interface ExistingRoute53RecordResponse {
   success: boolean;
   exists: boolean;
-  record: Route53RecordItem | null;
+  // record: Route53RecordItem | null;
 }
 
-export async function checkExistingRoute53Record(hostedZoneId: string) {
+export async function checkExistingRoute53Record(hostedZoneId: string, recordName: string,
+  recordType: string ) {
   return apiClient.get<ExistingRoute53RecordResponse>(
     env.route53Service,
     "/records/existing",
-    { hostedZoneId }
+    { hostedZoneId,
+       recordName,
+        recordType,
+     }
   );
 }
 
@@ -123,6 +127,17 @@ export async function fetchRoute53LoadBalancers(region: string, endpointType: st
   );
 
   return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function checkRoute53RecordName(
+  hostedZoneId: string,
+  recordName: string,
+  recordType: string
+): Promise<{ exists: boolean }> {
+  return apiClient.get<{ exists: boolean }>(
+    env.route53Service,
+    `/records/check-name?hostedZoneId=${encodeURIComponent(hostedZoneId)}&recordName=${encodeURIComponent(recordName)}&recordType=${encodeURIComponent(recordType)}`
+  );
 }
 
 export async function createRoute53Record(payload: CreateRoute53RecordPayload) {

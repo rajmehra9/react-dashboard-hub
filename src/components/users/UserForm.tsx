@@ -68,7 +68,8 @@ const ROLE_LABELS: Record<string, string> = {
   "SplunkOps.Admin": "Admin",
   "SplunkOps.User": "User",
   "SplunkOps.Auditor": "Auditor",
-  "SplunkOps.Stakeholder": "Stakeholder"
+  "SplunkOps.Stakeholder": "Stakeholder",
+  "SplunkOps.Approver": "Approver",
 };
 
 // ── Component ────────────────────────────────────────────────────────────────

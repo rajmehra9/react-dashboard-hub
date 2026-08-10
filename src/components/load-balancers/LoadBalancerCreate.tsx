@@ -675,18 +675,10 @@ export function LoadBalancerCreate({ kind }: Props) {
       setJustificationError(false);
     }
 
-    if (valid && !validateLbName(name)) {
-      try {
-        const res = await lbApi.checkLbName(name, selectedRegion);
-        if (res.exists) {
-          setNameExistsError(true);
-          nameInputRef.current?.focus();
-          nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-          valid = false;
-        }
-      } catch {
-        // fail open
-      }
+    if (nameCheckLoading || nameExistsError) {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      valid = false;
     }
 
     if (!valid) return;
@@ -994,7 +986,7 @@ export function LoadBalancerCreate({ kind }: Props) {
                 </div>
               ) : nameCheckLoading ? (
                 <p className="mt-2 text-xs text-muted-foreground">Checking availability...</p>
-              ) : submitted && nameExistsError ? (
+              ) : nameExistsError ? (
                 <div className="mt-2 flex items-start gap-2 text-xs text-red-600">
                   <XCircle size={14} className="mt-0.5 shrink-0" />
                   <span>A load balancer named "{name}" already exists in {selectedRegion}. Choose a different name.</span>

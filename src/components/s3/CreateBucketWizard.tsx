@@ -34,6 +34,8 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
   const [bucketNameExists, setBucketNameExists] =
     useState(false);
 
+  const [bucketNameCheckError, setBucketNameCheckError] =
+    useState<string | null>(null);
   const bucketNameCheckTimer =
     useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -63,6 +65,7 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
     }
 
     setBucketNameExists(false);
+    setBucketNameCheckError(null);
 
     if (
       isDirectory ||
@@ -91,9 +94,13 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
       )
         .then((res) => {
           setBucketNameExists(!!res.exists);
+          setBucketNameCheckError(null);
         })
         .catch(() => {
           setBucketNameExists(false);
+          setBucketNameCheckError(
+            "Unable to verify bucket availability. Please try again."
+          );
         })
         .finally(() => {
           setBucketNameCheckLoading(false);
@@ -151,6 +158,10 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
   const bucketNameError = submitted ? validateBucketName() : null;
   const justificationError = submitted || justificationTouched ? validateJustification() : null;
   const bucketNameInputRef = useRef<HTMLInputElement | null>(null);
+
+  const blockAllPublicOff = !isDirectory && !(form.blockNewAcls && form.blockAnyAcls && form.blockNewPolicies && form.blockCrossAccountPolicies);
+  const publicAccessRiskUnacknowledged = blockAllPublicOff && !form.acknowledgeBlockPublic;
+  const publicAccessAckError = submitted && publicAccessRiskUnacknowledged;
 
   return (
     <div className="bg-background min-h-full">
@@ -353,6 +364,10 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                   <p className="text-xs text-muted-foreground mt-1">
                     Checking bucket availability...
                   </p>
+                ) : bucketNameCheckError ? (
+                  <div className="text-xs text-red-600 mt-1">
+                    {bucketNameCheckError}
+                  </div>
                 ) : bucketNameExists ? (
                   <div className="text-xs text-red-600 mt-1">
                     Bucket name already exists globally. Choose a different name.
@@ -438,7 +453,7 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
         </Section>
 
         {/* Block Public Access */}
-        <Section title="Block Public Access settings for this bucket" icon={<ShieldBan className="h-5 w-5 text-primary" />}>
+        <Section id="bucket-public-access" title="Block Public Access settings for this bucket" icon={<ShieldBan className="h-5 w-5 text-primary" />}>
           <p className="text-xs text-muted-foreground -mt-2 mb-3">
             {isDirectory
               ? "The settings specified here apply only to this directory bucket. These settings can't be edited. "
@@ -506,8 +521,8 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                   </label>
                 ))}
               </div>
-              {!(form.blockNewAcls && form.blockAnyAcls && form.blockNewPolicies && form.blockCrossAccountPolicies) && (
-                <div className="bg-warning/10 border border-warning/40 rounded-md p-3 mt-4">
+              {blockAllPublicOff && (
+                <div className={`bg-warning/10 border rounded-md p-3 mt-4 ${publicAccessAckError ? "border-red-500 ring-1 ring-red-200" : "border-warning/40"}`}>
                   <div className="flex items-start gap-2">
                     <AlertTriangle size={16} className="text-warning mt-0.5 shrink-0" />
                     <div className="text-xs">
@@ -526,6 +541,9 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                     />
                     <span className="text-xs">I acknowledge that the current settings might result in this bucket and the objects within becoming public.</span>
                   </label>
+                  {publicAccessAckError && (
+                    <div className="text-xs text-red-600 mt-2 ml-6">You must acknowledge this before creating the bucket.</div>
+                  )}
                 </div>
               )}
             </>
@@ -620,13 +638,17 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
               setSubmitted(true);
               const nameErr = validateBucketName();
               const justErr = validateJustification();
-              if (nameErr || bucketNameExists || bucketNameCheckLoading) {
+              if (nameErr || bucketNameExists || bucketNameCheckLoading || bucketNameCheckError) {
                 bucketNameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                 bucketNameInputRef.current?.focus();
                 return;
               }
               if (justErr) {
                 document.getElementById("bucket-justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                return;
+              }
+              if (publicAccessRiskUnacknowledged) {
+                document.getElementById("bucket-public-access")?.scrollIntoView({ behavior: "smooth", block: "center" });
                 return;
               }
               if (!isDirectory) {
@@ -637,8 +659,9 @@ export function CreateBucketWizard({ onCancel, onSubmit }: {
                     isRegional ? "ACCOUNT_REGIONAL" : "GLOBAL"
                   );
                   if (res.exists) { setBucketNameExists(true); return; }
-                } catch {
-                  // fail open
+                } catch (err) {
+                    console.error(err);
+                    return;
                 }
               }
               setIsConfirmOpen(true);

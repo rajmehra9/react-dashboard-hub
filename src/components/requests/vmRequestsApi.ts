@@ -42,6 +42,7 @@ export interface VMRequest {
   service?: string;
   provision_retry_count?: number;
   terminate_retry_count?: number;
+  has_terminating_vms?: boolean;
 }
 
 const categoryLabels: Record<number, string> = {

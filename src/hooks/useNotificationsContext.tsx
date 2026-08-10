@@ -7,6 +7,7 @@ import {
 } from "@/services/notificationApi";
 import type { Notification, NotificationRaw } from "@/types/api";
 import { env } from "@/lib/env";
+import { useAuth } from "./useLogin";
 
 const mapNotification = (n: NotificationRaw): Notification => ({
   id: n.id,
@@ -37,8 +38,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const [isLoading, setIsLoading] = useState(true);
   const socketRef = useRef<Socket | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { user } = useAuth();
 
-  const token = localStorage.getItem("token");
+  const token = user ? localStorage.getItem('token') : null;
 
   const loadNotifications = async () => {
     try {
@@ -91,19 +93,26 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
     loadNotifications();
 
+    // Poll every 30s to catch notifications that arrive between socket events
+    const pollInterval = setInterval(loadNotifications, 30_000);
+
     const socket = io(env.socket, {
       path: "/notification-service/socket.io",
       auth: { token },
       reconnection: true,
-      reconnectionDelay: 2000,
+      reconnectionDelay: 500,
       reconnectionAttempts: 5,
       timeout: 10000,
-      transports: ["polling", "websocket"],
+      transports: ["websocket"],
+      upgrade: false,
     });
 
     socketRef.current = socket;
 
-    socket.on("connect", () => console.log("[Socket] Connected to notification service"));
+    socket.on("connect", () => {
+      console.log("[Socket] Connected to notification service");
+      loadNotifications();
+    });
 
     socket.on("notification:new", (notification: NotificationRaw) => {
       const mapped = mapNotification(notification);
@@ -133,6 +142,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     socket.on("disconnect", (reason) => console.warn("[Socket] Disconnected:", reason));
 
     return () => {
+      clearInterval(pollInterval);
       socket.disconnect();
       socketRef.current = null;
     };

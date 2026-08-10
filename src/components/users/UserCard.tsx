@@ -33,6 +33,7 @@ const ROLE_DISPLAY: Record<string, string> = {
   "SplunkOps.User": "User",
   "SplunkOps.Auditor": "Auditor",
   "SplunkOps.Stakeholder": "Stakeholder",
+  "SplunkOps.Approver": "Approver",
 };
 
 const ROLE_BADGE_CLASS: Record<string, string> = {
@@ -41,6 +42,7 @@ const ROLE_BADGE_CLASS: Record<string, string> = {
   "SplunkOps.User": "border-green-500 text-green-400 bg-green-500/10",
   "SplunkOps.Stakeholder": "border-[#F28E2B] text-[#F28E2B] bg-[#F28E2B]/10",
   "SplunkOps.Auditor": "border-[#EDC948] text-[#EDC948] bg-[#EDC948]/10",
+  "SplunkOps.Approver": "border-[#00a2b1] text-[#00a2b1] bg-[#00a2b1]/10",
 };
 
 

@@ -18,13 +18,13 @@ import S3 from "./pages/S3";
 import Login from "./pages/Login";
 import MicrosoftRedirect from "./pages/MicrosoftRedirect";
 import NotFound from "./pages/NotFound";
-import { Loader2, View } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/useLogin";
 import { useEffect } from "react";
 import { useAppStore } from "./store/appStore";
 import SignUp from "./pages/SignUp";
 import ActivateInvitation from "./pages/ActivateInvitation";
-import { isAdmin, canViewDashboard, canViewAuditLogs, canViewFinOps } from "./utils/roles";
+import { isAdmin, canViewDashboard, canViewAuditLogs, canViewFinOps, canApproveRequests } from "./utils/roles";
 import Feedback from "./pages/feedback";
 import AdminFeedback from "./pages/AdminFeedback";
 import QuotaRequests from "./pages/QuotaRequests";
@@ -56,8 +56,8 @@ import CreateRds from "./pages/CreateRds";
 import RdsDetailPage from "./pages/RdsDetail";
 import HostedZoneDetails from "./components/route-53/HostedZoneDetails";
 import CreateRecord from "./components/route-53/CreateRecord";
-import RolesManagement from "./pages/RolesManagement";
-import ViewRoles from "./components/roles/ViewRoles";
+// import RolesManagement from "./pages/RolesManagement";
+// import ViewRoles from "./components/roles/ViewRoles";
 import { NotificationsProvider } from "@/hooks/useNotificationsContext";
 
 const API_AUTH_BASE = env.auth;
@@ -70,22 +70,6 @@ type AppProps = {
 };
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, error } = useAuth();
-  const { setCurrentUser } = useAppStore();
-  useEffect(() => {
-    const syncUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      try {
-        const res = await axios.get(`${API_AUTH_BASE}/api/auth/me`);
-        if (res.data?.data?.user) setCurrentUser(res.data.data.user);
-      } catch (err) {
-        console.error("User sync failed");
-      }
-    };
-
-    syncUser();
-  }, []);
 
   if (loading) {
     return (
@@ -121,6 +105,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+function ApproverRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!canApproveRequests(user.role)) return <Navigate to="/my-vms" replace />;
+  return <>{children}</>;
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   console.log("AdminRoute user:", user);
@@ -297,17 +289,17 @@ function AppRoutes() {
         <Route
           path="/admin/quota-requests"
           element={
-            <AdminRoute>
+            <ApproverRoute>
               <QuotaRequests />
-            </AdminRoute>
+            </ApproverRoute>
           }
         />
         <Route
           path="/admin/runtime-governance"
           element={
-            <AdminRoute>
+            <ApproverRoute>
               <RuntimeGovernance />
-            </AdminRoute>
+            </ApproverRoute>
           }
         />
         <Route path="/profile" element={<Profile />} />

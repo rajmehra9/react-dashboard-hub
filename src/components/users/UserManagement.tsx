@@ -60,6 +60,7 @@ export function UserManagement() {
     | "SplunkOps.User"
     | "SplunkOps.Auditor"
     | "SplunkOps.Stakeholder"
+    | "SplunkOps.Approver"
   >("all");
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -137,6 +138,7 @@ export function UserManagement() {
     "SplunkOps.User": users.filter((u) => u.role === "SplunkOps.User").length,
     "SplunkOps.Auditor": users.filter((u) => u.role === "SplunkOps.Auditor").length,
     "SplunkOps.Stakeholder": users.filter((u) => u.role === "SplunkOps.Stakeholder").length,
+    "SplunkOps.Approver": users.filter((u) => u.role === "SplunkOps.Approver").length,
   }), [users]);
 
   const filteredUsers = useMemo(() => {
@@ -235,6 +237,7 @@ export function UserManagement() {
             <SelectItem value="SplunkOps.User">User</SelectItem>
             <SelectItem value="SplunkOps.Auditor">Auditor</SelectItem>
             <SelectItem value="SplunkOps.Stakeholder">Stakeholder</SelectItem>
+            <SelectItem value="SplunkOps.Approver">Approver</SelectItem>
           </SelectContent>
         </Select>
       </div>

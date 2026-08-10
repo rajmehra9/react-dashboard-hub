@@ -24,6 +24,7 @@ import { Header } from "@/components/layout/Header";
 import {
   createRoute53Record,
   fetchRoute53LoadBalancers,
+  checkRoute53RecordName,
   Route53LoadBalancerItem,
 } from "@/services/route53Api";
 import { ApiError } from "@/lib/api";
@@ -114,6 +115,32 @@ function findInvalidIPv4s(values: string[]): string[] {
   return values.filter((v) => !isValidIPv4(v));
 }
 
+/** Human-readable reason why an IPv4 entry is invalid. */
+function ipv4Reason(ip: string): string {
+  if (/[^\d.]/.test(ip)) return "only digits and dots are allowed";
+  const parts = ip.split(".");
+  if (parts.length !== 4) return "must have 4 octets (e.g. 3.17.183.49)";
+  if (parts.some((p) => p === "")) return "each octet must have a value";
+  const tooBig = parts.filter((p) => Number(p) > 255);
+  if (tooBig.length > 0) return "each octet must be between 0 and 255";
+  if (parts.some((p) => p.length > 1 && p.startsWith("0"))) return "octets cannot have leading zeros";
+  return "is not a valid IPv4 address";
+}
+
+function ipv4ErrorMessage(invalid: string[]): string {
+  return invalid
+    .map((ip) => `'${ip}' — ${ipv4Reason(ip)}`)
+    .join("; ");
+}
+
+/** Keep only characters valid in a newline-separated list of IPv4 addresses. */
+function sanitizeIPv4Input(raw: string): string {
+  return raw
+    .split("\n")
+    .map((line) => line.replace(/[^\d.]/g, ""))
+    .join("\n");
+}
+
 
 
 export default function CreateRecord() {
@@ -144,20 +171,42 @@ export default function CreateRecord() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [recordNameError, setRecordNameError] = useState("");
+  const [recordNameExistsError, setRecordNameExistsError] = useState("");
+  const [recordNameCheckLoading, setRecordNameCheckLoading] = useState(false);
   const [valueError, setValueError] = useState("");
   const [justificationError, setJustificationError] = useState("");
   const [aliasLbError, setAliasLbError] = useState("");
   const recordNameInputRef = useRef<HTMLInputElement | null>(null);
   const valueTextareaRef = useRef<HTMLTextAreaElement | null>(null);
-   const [ttlError, setTtlError] = useState("");
+  const [ttlError, setTtlError] = useState("");
   const selectedLoadBalancer = useMemo(
     () => loadBalancers.find((lb) => lb.id === selectedLoadBalancerId) || null,
     [loadBalancers, selectedLoadBalancerId]
   );
 
 
-  const { hasActiveRecord, checkingExisting } = useHasActiveDnsRecord(hostedZoneId);
+  // const { hasActiveRecord, checkingExisting } = useHasActiveDnsRecord(hostedZoneId);
 
+
+  useEffect(() => {
+    const trimmed = recordName.trim();
+    if (!trimmed || !isValidRecordName(trimmed)) {
+      setRecordNameExistsError("");
+      return;
+    }
+    setRecordNameCheckLoading(true);
+    const timer = setTimeout(() => {
+      checkRoute53RecordName(hostedZoneId, trimmed, recordType)
+        .then(({ exists }) =>
+          setRecordNameExistsError(
+            exists ? `A record named "${trimmed}" already exists in this hosted zone.` : ""
+          )
+        )
+        .catch(() => setRecordNameExistsError(""))
+        .finally(() => setRecordNameCheckLoading(false));
+    }, 500);
+    return () => { clearTimeout(timer); setRecordNameCheckLoading(false); };
+  }, [recordName, recordType, hostedZoneId]);
 
   useEffect(() => {
     const shouldLoad = alias && endpointType && region;
@@ -246,7 +295,7 @@ export default function CreateRecord() {
   // };
 
   const isFormValid = useMemo(() => {
-    if (hasActiveRecord) return false;
+    // if (hasActiveRecord) return false;
 
     const trimmedRecordName = recordName.trim();
     if (!trimmedRecordName || !isValidRecordName(trimmedRecordName)) return false;
@@ -336,36 +385,36 @@ export default function CreateRecord() {
     }
   };
 
-const TTL_MIN = 60;
-const TTL_MAX = 300;
+  const TTL_MIN = 60;
+  const TTL_MAX = 300;
 
-const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const value = e.target.value;
+  const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
 
-  if (!/^\d{0,3}$/.test(value)) return;
+    if (!/^\d{0,3}$/.test(value)) return;
 
-  setTtl(value);
-  validateTtl(value);
-};
-
-
-const validateTtl = (value: string) => {
-  if (value === "") {
-    setTtlError("TTL is required");
-    return;
-  }
-
-  const ttlValue = Number(value);
-
-  if (ttlValue < TTL_MIN || ttlValue > TTL_MAX) {
-    setTtlError(`TTL must be between ${TTL_MIN} and ${TTL_MAX}`);
-  } else {
-    setTtlError("");
-  }
-};
+    setTtl(value);
+    validateTtl(value);
+  };
 
 
-  
+  const validateTtl = (value: string) => {
+    if (value === "") {
+      setTtlError("TTL is required");
+      return;
+    }
+
+    const ttlValue = Number(value);
+
+    if (ttlValue < TTL_MIN || ttlValue > TTL_MAX) {
+      setTtlError(`TTL must be between ${TTL_MIN} and ${TTL_MAX}`);
+    } else {
+      setTtlError("");
+    }
+  };
+
+
+
   return (
     <div className="space-y-4">
       <Header title={hostedZoneName} subtitle="Info" showSearch={false} />
@@ -395,9 +444,13 @@ const validateTtl = (value: string) => {
                   </span>
                 </div>
 
-                {submitted && recordNameError && (
+                {submitted && recordNameError ? (
                   <p className="mt-1 text-sm text-destructive">{recordNameError}</p>
-                )}
+                ) : recordNameCheckLoading ? (
+                  <p className="mt-1 text-sm text-muted-foreground">Checking name availability...</p>
+                ) : recordNameExistsError ? (
+                  <p className="mt-1 text-sm text-destructive">{recordNameExistsError}</p>
+                ) : null}
               </div>
 
               <div>
@@ -549,17 +602,22 @@ const validateTtl = (value: string) => {
                     rows={2}
                     value={value}
                     onChange={(e) => {
-                      setValue(e.target.value);
+                      const next =
+                        recordType === "A"
+                          ? sanitizeIPv4Input(e.target.value)
+                          : e.target.value;
+                      setValue(next);
                       if (submitted) {
-                        const lines = parseValueEntries(e.target.value);
+                        const lines = parseValueEntries(next);
                         const dups = findDuplicates(lines);
                         const invIps = recordType === "A" ? findInvalidIPv4s(lines) : [];
                         if (lines.length === 0) setValueError("At least one value is required.");
                         else if (dups.length > 0) setValueError(`Duplicate value: ${dups.join(", ")}`);
-                        else if (invIps.length > 0) setValueError(`Invalid IPv4: ${invIps.map((ip) => `'${ip}'`).join(", ")}`);
+                        else if (invIps.length > 0) setValueError(`Invalid IPv4: ${ipv4ErrorMessage(invIps)}`);
                         else setValueError("");
                       }
                     }}
+                    inputMode={recordType === "A" ? "decimal" : undefined}
                     placeholder={`3.17.183.49`}
                     className="resize-none"
                   />
@@ -568,11 +626,13 @@ const validateTtl = (value: string) => {
                     <p className="text-sm text-destructive">{valueError}</p>
                   ) : invalidIps.length > 0 ? (
                     <p className="text-sm text-destructive">
-                      Invalid IPv4 address: {invalidIps.map((ip) => `'${ip}'`).join(", ")}
+                      Invalid IPv4 address: {ipv4ErrorMessage(invalidIps)}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      Enter one value per line. For alias records, use the toggle above.
+                      {recordType === "A"
+                        ? "Enter one IPv4 address per line — 4 octets, each between 0 and 255 (e.g. 3.17.183.49)."
+                        : "Enter one value per line. For alias records, use the toggle above."}
                     </p>
                   )}
                 </div>
@@ -625,7 +685,7 @@ const validateTtl = (value: string) => {
               </div>
             )}
 
-              <div className="space-y-2 rounded-lg border border-border bg-background/40 p-6" id="record-justification">
+            <div className="space-y-2 rounded-lg border border-border bg-background/40 p-6" id="record-justification">
               <div className="flex items-center gap-2">
                 <label className="font-medium">Justification</label>
               </div>
@@ -657,82 +717,73 @@ const validateTtl = (value: string) => {
               Cancel
             </Button>
 
-            {hasActiveRecord ? (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0}>
-                      <Button disabled className="bg-primary/50 text-white cursor-not-allowed">
-                        Create Record
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Your Maximum Limit is reached.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            ) : (
-              <Button
-                onClick={() => {
-                  setSubmitted(true);
-                  let valid = true;
+            <Button
+              onClick={() => {
+                setSubmitted(true);
 
-                  const trimmedName = recordName.trim();
-                  const nameErr = validateRecordNameField(trimmedName);
-                  setRecordNameError(nameErr);
-                  if (nameErr) valid = false;
+                let valid = true;
 
-                  const justErr = justification.trim().length < MIN_JUSTIFICATION_LENGTH
+                const trimmedName = recordName.trim();
+                const nameErr = validateRecordNameField(trimmedName);
+                setRecordNameError(nameErr);
+
+                if (nameErr) valid = false;
+                  if (recordNameExistsError || recordNameCheckLoading) valid = false;
+
+                const justErr =
+                  justification.trim().length < MIN_JUSTIFICATION_LENGTH
                     ? `Please provide at least ${MIN_JUSTIFICATION_LENGTH} characters.`
                     : "";
-                  setJustificationError(justErr);
-                  if (justErr) valid = false;
 
-                  let valErr = "";
-                  let lbErr = "";
-                  if (alias) {
-                    if (!selectedLoadBalancerId) { lbErr = "Please select a load balancer."; valid = false; }
-                    setAliasLbError(lbErr);
-                  } else {
-                    const lines = parseValueEntries(value);
-                    const dups = findDuplicates(lines);
-                    const invIps = recordType === "A" ? findInvalidIPv4s(lines) : [];
-                    if (lines.length === 0) valErr = "At least one value is required.";
-                    else if (dups.length > 0) valErr = `Duplicate value: ${dups.join(", ")}`;
-                    else if (invIps.length > 0) valErr = `Invalid IPv4: ${invIps.map((ip) => `'${ip}'`).join(", ")}`;
-                    else if (ttlError) valErr = ttlError;
-                    setValueError(valErr);
-                    if (valErr) valid = false;
+                setJustificationError(justErr);
+
+                if (justErr) valid = false;
+
+                let valErr = "";
+                let lbErr = "";
+
+                if (alias) {
+                  if (!selectedLoadBalancerId) {
+                    lbErr = "Please select a load balancer.";
+                    valid = false;
                   }
+                  setAliasLbError(lbErr);
+                } else {
+                  const lines = parseValueEntries(value);
+                  const dups = findDuplicates(lines);
+                  const invIps =
+                    recordType === "A"
+                      ? findInvalidIPv4s(lines)
+                      : [];
 
-                  if (!valid) {
-                    setTimeout(() => {
-                      if (nameErr) {
-                        recordNameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        recordNameInputRef.current?.focus();
-                      } else if (valErr || lbErr) {
-                        valueTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      } else if (justErr) {
-                        document.getElementById("record-justification")?.scrollIntoView({ behavior: "smooth", block: "center" });
-                      }
-                    }, 0);
-                    return;
-                  }
+                  if (lines.length === 0)
+                    valErr = "At least one value is required.";
+                  else if (dups.length > 0)
+                    valErr = `Duplicate value: ${dups.join(", ")}`;
+                  else if (invIps.length > 0)
+                    valErr = `Invalid IPv4: ${invIps.join(", ")}`;
+                  else if (ttlError)
+                    valErr = ttlError;
 
-                  setIsConfirmOpen(true);
-                }}
-                className="bg-primary text-white hover:bg-primary/90"
-              >
-                Create Record
-              </Button>
-            )}
+                  setValueError(valErr);
+
+                  if (valErr) valid = false;
+                }
+
+                if (!valid) return;
+
+                setIsConfirmOpen(true);
+              }}
+              className="bg-primary text-white hover:bg-primary/90"
+            >
+              Create Record
+            </Button>
           </div>
         </div>
       </div>
 
       <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent 
+        <DialogContent
           className="sm:max-w-2xl max-h-[85vh] flex flex-col"
           onInteractOutside={(event) => event.preventDefault()}>
           <div className="border-b pb-4">

@@ -151,6 +151,16 @@ export async function deleteVpcApi(requestId: string): Promise<void> {
   await apiClient.delete<ApiResponse<void>>(VPC_BASE_URL, `/vpc/${requestId}`);
 }
 
+export async function checkVpcNameApi(
+  name: string,
+  region: string
+): Promise<{ exists: boolean }> {
+  return apiClient.get<{ exists: boolean }>(
+    VPC_BASE_URL,
+    `/check-name?name=${encodeURIComponent(name)}&region=${encodeURIComponent(region)}`
+  );
+}
+
 export { ApiError };
 
 export const vpcApi = {

@@ -52,7 +52,8 @@ const NOT_READY_PHRASES = ["logs not available yet", "no logs available"];
 const hasDestroyLogs = (logText: string): boolean =>
   /DESTROY\s+LOGS/i.test(logText) || 
   /VPC\s+CLI\s+TERMINATION\s+LOGS/i.test(logText) ||
-  /LOAD\s+BALANCER\s+CLI\s+TERMINATION\s+LOGS/i.test(logText);
+  /LOAD\s+BALANCER\s+CLI\s+TERMINATION\s+LOGS/i.test(logText) ||
+  /INSTANCE\s+TERMINATION\s+LOGS/i.test(logText);
 
 const hasRetryLogs = (logText: string): boolean =>
   /RETRY\s+ATTEMPT/i.test(logText);
@@ -86,6 +87,7 @@ export function LiveConsole() {
   const [currentLogIndex, setCurrentLogIndex] = useState(0);
   const [allLogs, setAllLogs] = useState<TerraformLog[]>([]);
   const pausedLogsRef = useRef<TerraformLog[]>([]);
+  const sseCompletedRef = useRef(false);
 
   // Use hooks for API calls
   const { data: requestMeta } = useRequestDetails(activeRequestId, activeService ?? undefined);
@@ -166,12 +168,13 @@ useEffect(() => {
     isConnectingRef.current = false;
     lastSseAttemptRef.current = 0;
     hasFetchedArchiveRef.current = null;
+    sseCompletedRef.current = false;
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  }, [effectiveRequestId]);
+  }, [effectiveRequestId, activeService]);
 
 
 
@@ -246,11 +249,18 @@ useEffect(() => {
     ): Promise<FetchResult> => {
       try {
         setLoading(true);
-        const logsData = await fetchRequestLogsApi(
+        // const logsData = await fetchRequestLogsApi(
+        //   requestId,
+        //   activeServiceRef.current ?? undefined,
+        //   activeOperationRef.current ?? undefined,
+        // );
+
+          const logsData = await fetchRequestLogsApi(
           requestId,
-          activeServiceRef.current ?? undefined,
+          isLiveOnlyService(activeServiceRef.current ?? undefined) ? undefined : activeServiceRef.current ?? undefined,
           activeOperationRef.current ?? undefined,
         );
+
         const logText: string = logsData.logs || "";
         const isPlaceholder =
           !logText.trim() ||
@@ -334,7 +344,7 @@ useEffect(() => {
 
   // Connect to SSE endpoint using fetch with ReadableStream
   const connectToLiveLogs = useCallback(
-    async (requestId: string) => {
+    async (requestId: string, onComplete?: () => void) => {
       console.log("🔌 Connecting to live logs for:", requestId);
 
       // Clear previous logs
@@ -437,8 +447,8 @@ useEffect(() => {
 
                 if (data.type === "complete") {
                   console.log("🏁 Provisioning complete:", data.status);
-               setIsLiveMode(false);
-                  // Note: requestMeta is now from hook, status updates automatically
+                  sseCompletedRef.current = true;
+                  setIsLiveMode(false);
                   break;
                 }
 
@@ -479,6 +489,10 @@ useEffect(() => {
       } finally {
         console.log("🔌 SSE FINALLY CALLED");
         isConnectingRef.current = false;
+        // For liveOnly services, fetch archive logs after SSE stream ends
+        if (sseCompletedRef.current && onComplete) {
+          onComplete();
+        }
       }
     },
     [],
@@ -488,8 +502,78 @@ useEffect(() => {
   useEffect(() => {
     if (!effectiveRequestId || !requestMeta) return;
 
+    if (!effectiveRequestId) return;
+
+  const isLiveOnlyActive = isLiveOnlyService(activeService ?? undefined);
+
+  // liveOnly services (e.g. ec2-service) connect to SSE immediately —
+  // no requestMeta needed because status is irrelevant for them.
+  if (isLiveOnlyActive) {
+    const currentStatus = requestMeta?.status;
+    const isAlreadyTerminal = currentStatus && (currentStatus === "terminated" || currentStatus === "failed");
+
+    // If the request is already in a terminal state, skip SSE and fetch archive logs directly
+    if (isAlreadyTerminal) {
+      const fetchKey: ArchiveFetchKey = { requestId: effectiveRequestId, status: currentStatus };
+      const alreadyFetched =
+        hasFetchedArchiveRef.current?.requestId === fetchKey.requestId &&
+        hasFetchedArchiveRef.current?.status === fetchKey.status;
+      if (!alreadyFetched) {
+        hasFetchedArchiveRef.current = fetchKey;
+        setIsLiveMode(false);
+        const tryFetch = async (attemptsLeft: number) => {
+          const result = await fetchCompletedLogs(effectiveRequestId, currentStatus, []);
+          console.log(`[LiveConsole] ec2 terminal archive fetch result="${result}" attemptsLeft=${attemptsLeft}`);
+          if (result === "ready" || result === "error") return;
+          if (attemptsLeft > 0) {
+            hasFetchedArchiveRef.current = null;
+            setTimeout(() => {
+              hasFetchedArchiveRef.current = fetchKey;
+              tryFetch(attemptsLeft - 1);
+            }, 3000);
+          }
+        };
+        tryFetch(12);
+      }
+      return;
+    }
+
+    if (!sseCompletedRef.current) {
+      const now = Date.now();
+      if (!isConnectingRef.current && now - lastSseAttemptRef.current > 5000) {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+        isConnectingRef.current = true;
+        lastSseAttemptRef.current = now;
+        hasFetchedArchiveRef.current = null;
+        setDisplayedLogs([]);
+        setAllLogs([]);
+        setIsLiveMode(true);
+        const capturedRequestId = effectiveRequestId;
+        const sseSnapshot = () => [...liveSseLogsRef.current];
+        connectToLiveLogs(capturedRequestId, () => {
+          const snapshot = sseSnapshot();
+          const tryFetch = async (attemptsLeft: number) => {
+            const result = await fetchCompletedLogs(capturedRequestId, "completed", snapshot);
+            console.log(`[LiveConsole] ec2 archive fetch result="${result}" attemptsLeft=${attemptsLeft}`);
+            if (result === "ready" || result === "error") return;
+            if (attemptsLeft > 0) {
+              setTimeout(() => tryFetch(attemptsLeft - 1), 3000);
+            }
+          };
+          tryFetch(12);
+        });
+      }
+    }
+    return;
+  }
+
+  if (!requestMeta) return;       
+
     const status = requestMeta.status;
-    const isLiveOnlyActive = isLiveOnlyService(activeService ?? undefined);
+    // const isLiveOnlyActive = isLiveOnlyService(activeService ?? undefined);
 
     if (effectiveProvisioningStatuses.includes(status) || isLiveOnlyActive) {
       // Only connect if not already streaming and enough time has passed since
@@ -531,11 +615,11 @@ useEffect(() => {
           abortControllerRef.current = null;
         }
 
-        if (isLiveOnlyService(activeServiceRef.current ?? undefined)) {
-          const sseSnapshot = [...liveSseLogsRef.current];
-          setDisplayedLogs(sseSnapshot);
-          return;
-        }
+        // if (isLiveOnlyService(activeServiceRef.current ?? undefined)) {
+        //   const sseSnapshot = [...liveSseLogsRef.current];
+        //   setDisplayedLogs(sseSnapshot);
+        //   return;
+        // }
 
         const sseSnapshot = [...liveSseLogsRef.current];
         const tryFetch = async (attemptsLeft: number) => {

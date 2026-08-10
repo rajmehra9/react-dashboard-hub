@@ -31,6 +31,13 @@ async function getClientIp(): Promise<string> {
     return cachedClientIp;
   }
 
+  const storedIp = localStorage.getItem('clientIp');
+  if (storedIp) {
+    cachedClientIp = storedIp;
+    cacheTimestamp = now;
+    return storedIp;
+  }
+
   try {
     const res = await fetch("https://api.ipify.org?format=json");
     const data = await res.json();
@@ -136,8 +143,7 @@ class ApiClient {
     try {
       const headers = await this.getAuthHeader();
 
-      const response = await axios.get<T>(`${baseUrl}${path}`, {
-        params,
+      const response = await axios.post<T>(`${baseUrl}${path}`, params, {
         headers,
       });
 
@@ -146,8 +152,7 @@ class ApiClient {
       return this.handleAxiosError(error, async () => {
         const headers = await this.getAuthHeader();
 
-        const response = await axios.get<T>(`${baseUrl}${path}`, {
-          params,
+        const response = await axios.post<T>(`${baseUrl}${path}`, params, {
           headers,
         });
 
@@ -164,8 +169,7 @@ class ApiClient {
     try {
       const headers = await this.getAuthHeader();
 
-      const response = await axios.get<T>(`${baseUrl}${path}`, {
-        params,
+      const response = await axios.patch<T>(`${baseUrl}${path}`, params, {
         headers,
       });
 
@@ -174,8 +178,7 @@ class ApiClient {
       return this.handleAxiosError(error, async () => {
         const headers = await this.getAuthHeader();
 
-        const response = await axios.get<T>(`${baseUrl}${path}`, {
-          params,
+        const response = await axios.patch<T>(`${baseUrl}${path}`, params, {
           headers,
         });
 
@@ -192,8 +195,7 @@ class ApiClient {
     try {
       const headers = await this.getAuthHeader();
 
-      const response = await axios.get<T>(`${baseUrl}${path}`, {
-        params,
+      const response = await axios.put<T>(`${baseUrl}${path}`, params, {
         headers,
       });
 
@@ -202,8 +204,7 @@ class ApiClient {
       return this.handleAxiosError(error, async () => {
         const headers = await this.getAuthHeader();
 
-        const response = await axios.get<T>(`${baseUrl}${path}`, {
-          params,
+        const response = await axios.put<T>(`${baseUrl}${path}`, params, {
           headers,
         });
 
@@ -220,7 +221,7 @@ class ApiClient {
     try {
       const headers = await this.getAuthHeader();
 
-      const response = await axios.get<T>(`${baseUrl}${path}`, {
+      const response = await axios.delete<T>(`${baseUrl}${path}`, {
         params,
         headers,
       });
@@ -230,7 +231,7 @@ class ApiClient {
       return this.handleAxiosError(error, async () => {
         const headers = await this.getAuthHeader();
 
-        const response = await axios.get<T>(`${baseUrl}${path}`, {
+        const response = await axios.delete<T>(`${baseUrl}${path}`, {
           params,
           headers,
         });

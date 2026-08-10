@@ -172,7 +172,7 @@ export function useMyVMs() {
       }
       try {
         const data = await fetchVMStatusApi(instanceId);
-        const normalized = normalizeStatus(data.status as any);
+        const normalized = normalizeStatus(data.status);
 
         setVMs((prev) =>
           prev.map((vm) =>
@@ -284,7 +284,7 @@ export function useMyVMs() {
       setActiveRequest(targetVM.requestId, "ec2-service");
       // ✅ ADD THIS: Navigate to Console to view live logs
       // await new Promise(resolve => setTimeout(resolve, 100));
-      navigate("/console");
+      // navigate("/console");
     }
 
       await refreshCurrentUser();
@@ -297,7 +297,7 @@ export function useMyVMs() {
     } finally {
       setOperatingVMs((prev) => { const s = new Set(prev); s.delete(instanceId); return s; });
     }
-  }, [isAwsConnected, operatingVMs, alert, confirm, watchVM, refreshCurrentUser]);
+  }, [isAwsConnected, operatingVMs, vms, alert, confirm, watchVM, refreshCurrentUser]);
 
   const startAllVMs = useCallback(async (requestId: string) => {
     const stoppedVMs = vms.filter((vm) => vm.requestId === requestId && vm.status === "stopped");

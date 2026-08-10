@@ -657,12 +657,12 @@ export default function VMRequests() {
         );
         const canDestroy = req.status === "completed" || (req.status === "failed" && !isTerminateFailed);
         const logsCleared = !!req.logs_cleared_at;
-        // If a destroy/delete ran AFTER the logs were cleared, new logs exist
+        // If any activity ran AFTER the logs were cleared, new logs exist.
+        // This covers: destroy/delete operations AND individual EC2 instance
+        // terminations (vm-service) which only update requests.updated_at.
         const hasNewLogsAfterClear = logsCleared && req.updated_at &&
-          new Date(req.updated_at) > new Date(req.logs_cleared_at!) &&
-          (req.last_operation === "destroy" || req.last_operation === "delete" ||
-           req.status === "destroying" || req.status === "destroyed");
-        const eyeDisabled = (logsCleared && !hasNewLogsAfterClear) || isAwsDisconnected;
+          new Date(req.updated_at) > new Date(req.logs_cleared_at!);
+        const eyeDisabled = (logsCleared && !hasNewLogsAfterClear && !req.has_terminating_vms) || isAwsDisconnected;
         return (
           <div className="flex items-center justify-end gap-1">
             <Button
