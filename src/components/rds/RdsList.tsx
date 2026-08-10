@@ -108,7 +108,10 @@ function StatusBadge({ status }: { status: RdsStatus }) {
   const map: Record<RdsStatus, { cls: string; icon: ReactNode }> = {
     Available: { cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: <CheckCircle2 size={11} /> },
     Provisioning: { cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: <Clock size={11} /> },
+    Creating: { cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: <Clock size={11} /> },
     Terminating: { cls: "bg-orange-500/10 text-orange-400 border-red-500/20", icon: <AlertCircle size={11} /> },
+    Terminated: { cls: "bg-muted text-muted-foreground border-border", icon: <AlertCircle size={11} /> },
+    Deleting: { cls: "bg-orange-500/10 text-orange-400 border-orange-500/20", icon: <AlertCircle size={11} /> },
     Stopped: { cls: "bg-amber-500/10 text-amber-400 border-amber-500/20", icon: <AlertCircle size={11} /> },
     Modifying: { cls: "bg-purple-500/10 text-purple-400 border-purple-500/20", icon: <Clock size={11} /> },
   };
