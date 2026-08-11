@@ -144,7 +144,7 @@ export async function createRoute53Record(payload: CreateRoute53RecordPayload) {
   return apiClient.post<CreateRoute53RecordResponse>(
     env.route53Service,
     "/records",
-    payload as unknown as Record<string, string>
+    payload
   );
 }
 
@@ -178,6 +178,6 @@ export async function requestRoute53QuotaIncrease(
   return apiClient.post<{ success?: boolean; message?: string }>(
     env.route53Service,
     `/route53-quota/${userId}/request`,
-    body as unknown as Record<string, string>
+    body
   );
 }
