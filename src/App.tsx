@@ -1,4 +1,3 @@
-import axios from "axios";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,8 +19,6 @@ import MicrosoftRedirect from "./pages/MicrosoftRedirect";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/hooks/useLogin";
-import { useEffect } from "react";
-import { useAppStore } from "./store/appStore";
 import SignUp from "./pages/SignUp";
 import ActivateInvitation from "./pages/ActivateInvitation";
 import { isAdmin, canViewDashboard, canViewAuditLogs, canViewFinOps, canApproveRequests } from "./utils/roles";
@@ -36,7 +33,6 @@ import RuntimeGovernance from "./pages/RuntimeGovernance";
 import RuntimeGovernanceAction from "./pages/RunTimeGovernanceAction";
 import { ThemeProvider } from "./hooks/useTheme";
 import QuotaRequestAction from "./pages/QuotaRequestAction";
-import { env } from "@/lib/env";
 import Vpcs from "./pages/Vpcs";
 import { VpcDetails } from "./components/vpc/VpcDetails";
 import { CreateVpc } from "./components/vpc/CreateVpc";
@@ -60,7 +56,6 @@ import CreateRecord from "./components/route-53/CreateRecord";
 // import ViewRoles from "./components/roles/ViewRoles";
 import { NotificationsProvider } from "@/hooks/useNotificationsContext";
 
-const API_AUTH_BASE = env.auth;
 const queryClient = new QueryClient();
 type AppProps = {
   msalEnabled?: boolean;
@@ -115,7 +110,6 @@ function ApproverRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  console.log("AdminRoute user:", user);
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

@@ -169,7 +169,7 @@ const defaultStatusConfig = {
 
 export function RecentRequests() {
   const fetchRequestsApi = async () => {
-    const res = await axios.get(`${env.vmRequest}/api/requests`);
+    const res = await axios.get(`${env.vmRequest}/api/requests?dashboard=true`);
     return res.data;
   };
   const {
@@ -184,6 +184,8 @@ export function RecentRequests() {
     enabled: !!localStorage.getItem("token"),
   });
   const navigate = useNavigate();
+  const currentUser = useAppStore((s) => s.currentUser);
+  const isStakeholder = currentUser?.role === "SplunkOps.Stakeholder";
 
   const requestItems = Array.isArray(requests?.data)
     ? requests.data
@@ -192,9 +194,6 @@ export function RecentRequests() {
       : [];
 
   const recentRequests = requestItems.slice(0, 5) || [];
-
-  const currentUser = useAppStore((s) => s.currentUser);
-  const isStakeholder = currentUser?.role === "SplunkOps.Stakeholder";
 
   return (
     <div className="glass-panel rounded-xl">
@@ -232,7 +231,7 @@ export function RecentRequests() {
           </div>
         ) : (
           recentRequests.map((request: Request) => (
-            <RequestRow key={request.request_id} request={request} />
+            <RequestRow key={request.request_id} request={request} currentUser={currentUser} />
           ))
         )}
       </div>
@@ -240,7 +239,7 @@ export function RecentRequests() {
   );
 }
 
-function RequestRow({ request }: { request: Request }) {
+function RequestRow({ request, currentUser }: { request: Request; currentUser: any }) {
   const { data: awsConfig } = useAwsConfig();
   const isAwsConnected = awsConfig?.status === "CONNECTED";
   const navigate = useNavigate();
@@ -250,10 +249,14 @@ function RequestRow({ request }: { request: Request }) {
    const serviceLabel =
     SERVICE_LABELS[request.service ?? ""] ?? request.service ?? "Request";
 
-  const currentUser = useAppStore((s) => s.currentUser);
   const isStakeholder = currentUser?.role === "SplunkOps.Stakeholder";
+  const isOwnRequest = request.user_name === currentUser?.name;
   const logsCleared = !!request.logs_cleared_at;
-  const canOpenConsole = isAwsConnected && !isStakeholder && !logsCleared;
+
+  // Stakeholder: enabled only for own requests; others: normal logic
+  const canOpenConsole = isStakeholder
+    ? isAwsConnected && !logsCleared && isOwnRequest
+    : isAwsConnected && !logsCleared;
 
   const rowContent = (
     <div

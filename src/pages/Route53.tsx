@@ -97,13 +97,6 @@ export default function Route53() {
       f.toLowerCase().includes(query)
     )
   );
-  const query = search.trim().toLowerCase();
-  const rows = data.filter((x) =>
-    !query ||
-    [x.name, x.type, x.id, x.createdBy].some((f) =>
-      f.toLowerCase().includes(query)
-    )
-  );
   const totalRecords = usedRecords;
   const remainingQuota = Math.max(
     0,
@@ -224,8 +217,6 @@ export default function Route53() {
               className="pl-9 bg-background/50"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
 
@@ -309,14 +300,9 @@ export default function Route53() {
                       </td>
 
                       <td className="px-5 py-4">{zone.type}</td>
-                      <td className="px-5 py-4">{zone.type}</td>
 
                       <td className="px-5 py-4">{zone.createdBy}</td>
-                      <td className="px-5 py-4">{zone.createdBy}</td>
 
-                      <td className="px-5 py-4">
-                        {statsLoading ? "-" : recordCountByZoneName(zone.name)}
-                      </td>
                       <td className="px-5 py-4">
                         {statsLoading ? "-" : recordCountByZoneName(zone.name)}
                       </td>
@@ -324,16 +310,7 @@ export default function Route53() {
                       <td className="px-5 py-4 text-muted-foreground">
                         {zone.description}
                       </td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        {zone.description}
-                      </td>
 
-                      <td className="px-5 py-4 font-mono text-muted-foreground">
-                        {zone.id}
-                      </td>
-                    </tr>
-                  ))
-                )}
                       <td className="px-5 py-4 font-mono text-muted-foreground">
                         {zone.id}
                       </td>

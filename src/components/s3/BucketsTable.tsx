@@ -194,7 +194,6 @@ export function BucketsTable({
                   "Public Access",
                   "Region",
                   "Creation Date",
-                  "Status",
                 ].map((h) => (
                   <th key={h} className="px-5 py-3 text-left font-medium whitespace-nowrap">
                     {h}
@@ -250,7 +249,7 @@ export function BucketsTable({
                     <td className="px-5 py-4 whitespace-nowrap text-muted-foreground">
                       {formatDate(r.createdAt)}
                     </td>
-                    <td className="px-5 py-4 whitespace-nowrap">{statusBadge(r)}</td>
+                    {/* <td className="px-5 py-4 whitespace-nowrap">{statusBadge(r)}</td> */}
                     <td className="px-5 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
                         <CopyIconButton

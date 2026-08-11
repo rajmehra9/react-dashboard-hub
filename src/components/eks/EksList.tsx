@@ -2,8 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  CheckCircle2,
-  Monitor,
   Globe,
   Layers,
   Network,
@@ -33,32 +31,6 @@ import {
 import { useAppStore } from "@/store/appStore";
 import { EksQuotaIncreaseDialog } from "@/components/eks/EksQuotaIncreaseDialog";
 import { env } from "@/lib/env";
-// const STATIC_CLUSTERS = [
-//   {
-//     id: "EKS-REQ-1001",
-//     name: "dev-eks-cluster",
-//     status: "Active",
-//     version: "1.33",
-//     createdDate: "2026-07-01T10:30:00",
-//     justification: "Development workloads",
-//   },
-//   {
-//     id: "EKS-REQ-1002",
-//     name: "qa-eks-cluster",
-//     status: "Provisioning",
-//     version: "1.32",
-//     createdDate: "2026-07-04T14:20:00",
-//     justification: "QA testing",
-//   },
-//   {
-//     id: "EKS-REQ-1003",
-//     name: "prod-eks-cluster",
-//     status: "Active",
-//     version: "1.31",
-//     createdDate: "2026-06-28T09:15:00",
-//     justification: "Production workloads",
-//   },
-// ];
 
 const API_BASE = import.meta.env.VITE_EKS_CLUSTER_SERVICE_URL;
 
@@ -129,8 +101,6 @@ export function EksList() {
     fetchClusters();
   }, []);
 
-  console.log("Fetched clusters:", clusters);
-
   const userClusterCount = clusters.filter(
     (c) =>
       String(c.created_by) === String(currentUser?.id) &&
@@ -155,11 +125,11 @@ export function EksList() {
 
   const remainingQuota = Math.max(0, MAX_EKS - userClusterCount);
   const latestVersion =
-    filtered
+    clusters
       .map((c) => c.kubernetes_version)
       .sort()
       .reverse()[0] ?? "—";
-  const activeCount = filtered.filter((c) => c.status === "ACTIVE").length;
+  const activeCount = clusters.filter((c) => c.status === "ACTIVE").length;
   const provisioning = filtered.filter((c) => c.status === "PENDING").length;
 
   const [dialog, setDialog] = useState<{
