@@ -25,43 +25,11 @@ import {
 import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
 import { getClientIp } from "@/utils/getClientIP";
 import { useAppStore } from "@/store/appStore";
-import { env } from "@/lib/env";
-// inside the component, replace the hasActiveRecord/checkingExisting state + loadExistingCheck:
+import { HOSTED_ZONES, DEFAULT_HOSTED_ZONE_ID, DEFAULT_HOSTED_ZONE_NAME } from "./route53Constants";
+import { fetchRoute53QuotaUsage } from "@/services/route53Api";
+import { filterHostedZones, filterRecords, formatRecordValue } from "./route53Utils";
 
-type HostedZone = {
-  id: string;
-  name: string;
-  type: string;
-  createdBy: string;
-  records: number;
-  description: string;
-};
-
-const data: HostedZone[] = [
-  { id: "Z27YR27SJSDXLT", name: "prusplunk.com", type: "Public", createdBy: "Route 53", records: 28, description: "Hosted zone created by Route53 Registrar" },
-  // { id: "Z00619881JSGUIVHB25XT", name: "galt.net", type: "Public", createdBy: "Route 53", records: 3, description: "-" },
-];
-
-
-const DEFAULT_HOSTED_ZONE_ID = "e028d1bc-abef-44b4-91ae-efa139e4d2af";
-
-const ZONE_NAME = "prusplunk.com"; // matches the Header title below; swap for a route param if available
-
-// in handleDelete's onConfirm, replace loadExistingCheck() with:
-// refreshActiveRecord();
-function formatRecordValue(record: Route53RecordItem): string {
-  if (record.is_alias) {
-    return record.alias_dns_name ?? "-";
-  }
-  if (!record.value) return "-";
-  try {
-    const parsed = JSON.parse(record.value);
-    if (Array.isArray(parsed)) return parsed.join("\n");
-  } catch {
-    // not JSON — plain string value, fall through
-  }
-  return record.value;
-}
+const ZONE_NAME = DEFAULT_HOSTED_ZONE_NAME;
 
 export default function HostedZoneDetails() {
 
@@ -96,7 +64,7 @@ export default function HostedZoneDetails() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const rows = data.filter(x => x.name.toLowerCase().includes(search.toLowerCase()));
+  const rows = filterHostedZones(HOSTED_ZONES, search);
 
   const currentUser = useAppStore((s) => s.currentUser);
 
@@ -162,40 +130,15 @@ export default function HostedZoneDetails() {
     });
   };
 
-  const filteredRecords = records.filter(r => {
-    const query = search.toLowerCase();
-    const aliasLabel = r.is_alias ? "yes" : "no";
-    const valueOrTarget = formatRecordValue(r).toLowerCase();
-
-    return (
-      r.record_name.toLowerCase().includes(query) ||
-      r.request_id?.toLowerCase().includes(query) ||
-      r.record_type?.toLowerCase().includes(query) ||
-      r.routing_policy?.toLowerCase().includes(query) ||
-      aliasLabel.includes(query) ||
-      valueOrTarget.includes(query)
-    );
-  });
+  const filteredRecords = filterRecords(records, search);
   const fetchQuotaUsage = async () => {
     try {
-      const token = localStorage.getItem("token");
-
-      const response = await fetch(
-        `${env.route53Service}/quota`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      setUsedRecords(result.usedRecords || 0);
-    } catch (error) {
-      console.error(error);
+      setUsedRecords(await fetchRoute53QuotaUsage());
+    } catch {
+      // quota is non-critical for rendering the record list
     }
   };
+
   return (
     <div className="space-y-4">
       <Header
