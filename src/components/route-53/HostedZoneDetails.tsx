@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Search, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, Network, Layers, Globe, Clock, Pencil, Loader2 } from "lucide-react";
+import { RefreshCw, Search, ChevronDown, ChevronRight, Plus, Trash2, Loader2, Copy, Check } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -11,14 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
-import { Copy, Check } from "lucide-react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import {
   fetchRoute53Records,
   fetchRoute53QuotaUsage,
   deleteRoute53Record,
-  checkExistingRoute53Record,
   Route53RecordItem,
 } from "@/services/route53Api";
 import { useDialog } from "../ui/dialog-context";
@@ -28,11 +24,9 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
-import { getClientIp } from "@/utils/getClientIP";
 import { useAppStore } from "@/store/appStore";
-import { HOSTED_ZONES, DEFAULT_HOSTED_ZONE_ID, DEFAULT_HOSTED_ZONE_NAME } from "./route53Constants";
-import { filterHostedZones, filterRecords, formatRecordValue } from "./route53Utils";
+import { DEFAULT_HOSTED_ZONE_NAME } from "./route53Constants";
+import { filterRecords, formatRecordValue } from "./route53Utils";
 
 const ZONE_NAME = DEFAULT_HOSTED_ZONE_NAME;
 
@@ -69,7 +63,6 @@ export default function HostedZoneDetails() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const rows = filterHostedZones(HOSTED_ZONES, search);
 
   const currentUser = useAppStore((s) => s.currentUser);
 

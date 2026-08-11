@@ -28,13 +28,6 @@ import {
   Route53LoadBalancerItem,
 } from "@/services/route53Api";
 import { ApiError } from "@/lib/api";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
 
 import {
   DEFAULT_HOSTED_ZONE_ID,

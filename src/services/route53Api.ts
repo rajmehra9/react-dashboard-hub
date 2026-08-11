@@ -144,7 +144,7 @@ export async function createRoute53Record(payload: CreateRoute53RecordPayload) {
   return apiClient.post<CreateRoute53RecordResponse>(
     env.route53Service,
     "/records",
-    payload
+    payload as unknown as Record<string, string>
   );
 }
 
