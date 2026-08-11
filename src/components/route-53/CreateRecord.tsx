@@ -188,36 +188,6 @@ export default function CreateRecord() {
 
   const MIN_JUSTIFICATION_LENGTH = 20;
 
-
-  // const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const raw = e.target.value;
-  //   // allow clearing the field, or any non-negative integer — reject minus signs, decimals, etc.
-  //   if (raw === "" || /^\d+$/.test(raw)) {
-  //     setTtl(raw);
-  //   }
-  // };
-
-  const isFormValid = useMemo(() => {
-    // if (hasActiveRecord) return false;
-
-    const trimmedRecordName = recordName.trim();
-    if (!trimmedRecordName || !isValidRecordName(trimmedRecordName)) return false;
-
-    if (justification.trim().length < MIN_JUSTIFICATION_LENGTH) return false;
-
-    if (alias) {
-      if (!endpointType || !region || !selectedLoadBalancerId) return false;
-    } else {
-      if (valueLines.length === 0) return false;
-      if (findDuplicates(valueLines).length > 0) return false;
-      if (findInvalidIPv4s(valueLines).length > 0) return false;
-      if (ttlError !== "") return false;
-      if (!Number.isInteger(Number(ttl)) || Number(ttl) < 0 || ttl.trim() === "") return false;
-    }
-
-    return true;
-  }, [recordName, justification, alias, endpointType, region, selectedLoadBalancerId, valueLines, ttl]);
-
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
