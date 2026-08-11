@@ -147,3 +147,37 @@ export async function createRoute53Record(payload: CreateRoute53RecordPayload) {
     payload
   );
 }
+
+export interface Route53QuotaResponse {
+  usedRecords?: number;
+  maxRecords?: number;
+  remainingRecords?: number;
+}
+
+/** Current DNS-record quota usage for the signed-in user. */
+export async function fetchRoute53QuotaUsage(): Promise<number> {
+  const response = await apiClient.get<Route53QuotaResponse>(
+    env.route53Service,
+    "/quota"
+  );
+
+  return response?.usedRecords ?? 0;
+}
+
+export interface Route53QuotaRequestBody {
+  requestedQuota: number;
+  reason: string;
+  approverEmail: string;
+}
+
+/** Submit a DNS-record quota increase request for approval. */
+export async function requestRoute53QuotaIncrease(
+  userId: string | number,
+  body: Route53QuotaRequestBody
+) {
+  return apiClient.post<{ success?: boolean; message?: string }>(
+    env.route53Service,
+    `/route53-quota/${userId}/request`,
+    body
+  );
+}
