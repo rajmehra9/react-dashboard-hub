@@ -1,4 +1,5 @@
-﻿// Static option lists for the EKS detail screens.
+// Static option lists for the EKS detail screens.
+// Static option lists for the EKS detail screens.
 
 export const RESOURCE_GROUPS = [
   {
