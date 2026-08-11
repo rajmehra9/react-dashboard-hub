@@ -14,7 +14,13 @@ import { useNavigate } from "react-router-dom";
 import { Copy, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { fetchRoute53Records, deleteRoute53Record, Route53RecordItem, checkExistingRoute53Record } from "@/services/route53Api";
+import {
+  fetchRoute53Records,
+  fetchRoute53QuotaUsage,
+  deleteRoute53Record,
+  checkExistingRoute53Record,
+  Route53RecordItem,
+} from "@/services/route53Api";
 import { useDialog } from "../ui/dialog-context";
 import {
   Tooltip,
@@ -26,7 +32,6 @@ import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
 import { getClientIp } from "@/utils/getClientIP";
 import { useAppStore } from "@/store/appStore";
 import { HOSTED_ZONES, DEFAULT_HOSTED_ZONE_ID, DEFAULT_HOSTED_ZONE_NAME } from "./route53Constants";
-import { fetchRoute53QuotaUsage } from "@/services/route53Api";
 import { filterHostedZones, filterRecords, formatRecordValue } from "./route53Utils";
 
 const ZONE_NAME = DEFAULT_HOSTED_ZONE_NAME;
