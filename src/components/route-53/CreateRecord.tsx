@@ -46,12 +46,21 @@ import {
   sanitizeIPv4Input,
   validateRecordNameField,
 } from "./route53Utils";
+  findDuplicates,
+  findInvalidIPv4s,
+  ipv4ErrorMessage,
+  isValidRecordName,
+  parseValueEntries,
+  sanitizeIPv4Input,
+  validateRecordNameField,
+} from "./route53Utils";
 
 export default function CreateRecord() {
   const setActiveRequest = useAppStore((s) => s.setActiveRequest);
 
   const navigate = useNavigate();
   const location = useLocation();
+  const routeState = (location.state || {}) as HostedZoneRouteState;
   const routeState = (location.state || {}) as HostedZoneRouteState;
   const { alert } = useDialog();
   const hostedZoneName = routeState.hostedZoneName || DEFAULT_HOSTED_ZONE_NAME;
