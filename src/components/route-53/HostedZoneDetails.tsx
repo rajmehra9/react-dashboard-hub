@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { RefreshCw, Search, ChevronDown, ChevronLeft, ChevronRight, Plus, Trash2, Network, Layers, Globe, Clock, Pencil, Loader2 } from "lucide-react";
+import { RefreshCw, Search, ChevronDown, ChevronRight, Plus, Trash2, Loader2, Copy, Check } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -11,10 +10,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
-import { Copy, Check } from "lucide-react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
-import { fetchRoute53Records, deleteRoute53Record, Route53RecordItem, checkExistingRoute53Record } from "@/services/route53Api";
+import {
+  fetchRoute53Records,
+  fetchRoute53QuotaUsage,
+  deleteRoute53Record,
+  Route53RecordItem,
+} from "@/services/route53Api";
 import { useDialog } from "../ui/dialog-context";
 import {
   Tooltip,
@@ -22,46 +24,11 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
-import { getClientIp } from "@/utils/getClientIP";
 import { useAppStore } from "@/store/appStore";
-import { env } from "@/lib/env";
-// inside the component, replace the hasActiveRecord/checkingExisting state + loadExistingCheck:
+import { DEFAULT_HOSTED_ZONE_NAME } from "./route53Constants";
+import { filterRecords, formatRecordValue } from "./route53Utils";
 
-type HostedZone = {
-  id: string;
-  name: string;
-  type: string;
-  createdBy: string;
-  records: number;
-  description: string;
-};
-
-const data: HostedZone[] = [
-  { id: "Z27YR27SJSDXLT", name: "prusplunk.com", type: "Public", createdBy: "Route 53", records: 28, description: "Hosted zone created by Route53 Registrar" },
-  // { id: "Z00619881JSGUIVHB25XT", name: "galt.net", type: "Public", createdBy: "Route 53", records: 3, description: "-" },
-];
-
-
-const DEFAULT_HOSTED_ZONE_ID = "e028d1bc-abef-44b4-91ae-efa139e4d2af";
-
-const ZONE_NAME = "prusplunk.com"; // matches the Header title below; swap for a route param if available
-
-// in handleDelete's onConfirm, replace loadExistingCheck() with:
-// refreshActiveRecord();
-function formatRecordValue(record: Route53RecordItem): string {
-  if (record.is_alias) {
-    return record.alias_dns_name ?? "-";
-  }
-  if (!record.value) return "-";
-  try {
-    const parsed = JSON.parse(record.value);
-    if (Array.isArray(parsed)) return parsed.join("\n");
-  } catch {
-    // not JSON — plain string value, fall through
-  }
-  return record.value;
-}
+const ZONE_NAME = DEFAULT_HOSTED_ZONE_NAME;
 
 export default function HostedZoneDetails() {
 
@@ -96,9 +63,9 @@ export default function HostedZoneDetails() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const rows = data.filter(x => x.name.toLowerCase().includes(search.toLowerCase()));
 
   const currentUser = useAppStore((s) => s.currentUser);
+  const setActiveRequest = useAppStore((s) => s.setActiveRequest);
 
   const MAX_RECORDS = currentUser?.maxDnsRecords ?? 0;
 
@@ -140,10 +107,10 @@ export default function HostedZoneDetails() {
         setDeletingId(record.id);
         try {
           const result = await deleteRoute53Record(record.id);
-          alert({ title: "DNS record deleted", description: `"${record.record_name}" was deleted successfully.`, severity: "success" });
+          const requestId = result.data?.requestId;
+          alert({ title: "DNS record deletion started", description: `"${record.record_name}" deletion has started.`, severity: "success" });
           setRecords(prev => prev.filter(r => r.id !== record.id));
           await fetchQuotaUsage();
-          const requestId = result.data?.requestId;
           if (requestId) {
             const consoleSearch = new URLSearchParams({
               request: requestId,
@@ -151,6 +118,10 @@ export default function HostedZoneDetails() {
               operation: "delete",
             }).toString();
             navigate(`/console?${consoleSearch}`, { replace: true });
+          } else {
+            alert({ title: "DNS record deleted", description: `"${record.record_name}" was deleted successfully.`, severity: "success" });
+            setRecords(prev => prev.filter(r => r.id !== record.id));
+            await fetchQuotaUsage();
           }
         } catch (err) {
           console.error(err);
@@ -162,40 +133,15 @@ export default function HostedZoneDetails() {
     });
   };
 
-  const filteredRecords = records.filter(r => {
-    const query = search.toLowerCase();
-    const aliasLabel = r.is_alias ? "yes" : "no";
-    const valueOrTarget = formatRecordValue(r).toLowerCase();
-
-    return (
-      r.record_name.toLowerCase().includes(query) ||
-      r.request_id?.toLowerCase().includes(query) ||
-      r.record_type?.toLowerCase().includes(query) ||
-      r.routing_policy?.toLowerCase().includes(query) ||
-      aliasLabel.includes(query) ||
-      valueOrTarget.includes(query)
-    );
-  });
+  const filteredRecords = filterRecords(records, search);
   const fetchQuotaUsage = async () => {
     try {
-      const token = localStorage.getItem("token");
-
-      const response = await fetch(
-        `${env.route53Service}/quota`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      setUsedRecords(result.usedRecords || 0);
-    } catch (error) {
-      console.error(error);
+      setUsedRecords(await fetchRoute53QuotaUsage());
+    } catch {
+      // quota is non-critical for rendering the record list
     }
   };
+
   return (
     <div className="space-y-4">
       <Header
@@ -392,22 +338,22 @@ export default function HostedZoneDetails() {
                         <div className="whitespace-pre-line break-all">
                           {formatRecordValue(record)}
                         </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5"
-                            onClick={() =>
-                              copyToClipboard(record.id, formatRecordValue(record))
-                            }
-                          >
-                            {copiedId === record.id ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={() =>
+                            copyToClipboard(record.id, formatRecordValue(record))
+                          }
+                        >
+                          {copiedId === record.id ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
 
-                        
+
                       </div>
                     </td>
                     <td className="px-5 py-4">{record.ttl ?? "-"}</td>

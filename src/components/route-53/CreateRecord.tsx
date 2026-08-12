@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useDialog } from "../ui/dialog-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FileText } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -28,125 +29,30 @@ import {
   Route53LoadBalancerItem,
 } from "@/services/route53Api";
 import { ApiError } from "@/lib/api";
+import { useAppStore } from "@/store/appStore";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import { useHasActiveDnsRecord } from "@/hooks/useHasActiveDnsRecord";
-
-// replace the local hasActiveRecord/checkingExisting state + useEffect check with:
-
-const DEFAULT_HOSTED_ZONE_NAME = "prusplunk.com";
-const DEFAULT_HOSTED_ZONE_ID = "e028d1bc-abef-44b4-91ae-efa139e4d2af";
-
-const RECORD_NAME_PATTERN =
-  /^[A-Za-z0-9*]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
-
-function isValidRecordName(name: string) {
-  const trimmed = name.trim();
-  if (!trimmed || trimmed === "@") return true;
-  return RECORD_NAME_PATTERN.test(trimmed);
-}
-
-function validateRecordNameField(name: string): string {
-  const trimmed = name.trim();
-  if (!trimmed) return "Record name is required.";
-  if (!isValidRecordName(trimmed)) return "Record name can only contain letters, numbers, hyphens, and periods.";
-  return "";
-}
-
-// const TTL_MAX = 600;
-
-const ENDPOINT_OPTIONS = [
-  {
-    value: "Alias to Application and Classic Load Balancer",
-    label: "Alias to Application and Classic Load Balancer",
-  },
-  {
-    value: "Alias to Network Load Balancer",
-    label: "Alias to Network Load Balancer",
-  },
-];
-
-const REGION_OPTIONS = [
-  { value: "us-east-2", label: "US East (Ohio)" },
-  { value: "us-east-1", label: "US East (N. Virginia)" },
-];
-
-type HostedZoneState = {
-  hostedZoneId?: string;
-  hostedZoneName?: string;
-};
-
-function parseValueEntries(raw: string): string[] {
-  return raw
-    .split(/[\r\n,]+/)
-    .map((v) => v.trim())
-    .filter(Boolean);
-}
-
-
-
-function findDuplicates(values: string[]): string[] {
-  const seen = new Set<string>();
-  const duplicates = new Set<string>();
-  for (const v of values) {
-    const key = v.toLowerCase();
-    if (seen.has(key)) duplicates.add(v);
-    seen.add(key);
-  }
-  return Array.from(duplicates);
-}
-
-function isValidIPv4(ip: string): boolean {
-  const parts = ip.split(".");
-  if (parts.length !== 4) return false;
-  return parts.every((part) => {
-    if (!/^\d{1,3}$/.test(part)) return false; // digits only, 1-3 chars
-    const n = Number(part);
-    // reject values > 255, and reject leading-zero forms like "065"
-    return n >= 0 && n <= 255 && String(n) === part;
-  });
-}
-
-function findInvalidIPv4s(values: string[]): string[] {
-  return values.filter((v) => !isValidIPv4(v));
-}
-
-/** Human-readable reason why an IPv4 entry is invalid. */
-function ipv4Reason(ip: string): string {
-  if (/[^\d.]/.test(ip)) return "only digits and dots are allowed";
-  const parts = ip.split(".");
-  if (parts.length !== 4) return "must have 4 octets (e.g. 3.17.183.49)";
-  if (parts.some((p) => p === "")) return "each octet must have a value";
-  const tooBig = parts.filter((p) => Number(p) > 255);
-  if (tooBig.length > 0) return "each octet must be between 0 and 255";
-  if (parts.some((p) => p.length > 1 && p.startsWith("0"))) return "octets cannot have leading zeros";
-  return "is not a valid IPv4 address";
-}
-
-function ipv4ErrorMessage(invalid: string[]): string {
-  return invalid
-    .map((ip) => `'${ip}' — ${ipv4Reason(ip)}`)
-    .join("; ");
-}
-
-/** Keep only characters valid in a newline-separated list of IPv4 addresses. */
-function sanitizeIPv4Input(raw: string): string {
-  return raw
-    .split("\n")
-    .map((line) => line.replace(/[^\d.]/g, ""))
-    .join("\n");
-}
-
-
+  DEFAULT_HOSTED_ZONE_ID,
+  DEFAULT_HOSTED_ZONE_NAME,
+  ENDPOINT_OPTIONS,
+  REGION_OPTIONS,
+} from "./route53Constants";
+import type { HostedZoneRouteState } from "./route53Types";
+import {
+  findDuplicates,
+  findInvalidIPv4s,
+  ipv4ErrorMessage,
+  isValidRecordName,
+  parseValueEntries,
+  sanitizeIPv4Input,
+  validateRecordNameField,
+} from "./route53Utils";
 
 export default function CreateRecord() {
+  const setActiveRequest = useAppStore((s) => s.setActiveRequest);
+
   const navigate = useNavigate();
   const location = useLocation();
-  const routeState = (location.state || {}) as HostedZoneState;
+  const routeState = (location.state || {}) as HostedZoneRouteState;
   const { alert } = useDialog();
   const hostedZoneName = routeState.hostedZoneName || DEFAULT_HOSTED_ZONE_NAME;
   const hostedZoneId = routeState.hostedZoneId || DEFAULT_HOSTED_ZONE_ID;
@@ -183,10 +89,6 @@ export default function CreateRecord() {
     () => loadBalancers.find((lb) => lb.id === selectedLoadBalancerId) || null,
     [loadBalancers, selectedLoadBalancerId]
   );
-
-
-  // const { hasActiveRecord, checkingExisting } = useHasActiveDnsRecord(hostedZoneId);
-
 
   useEffect(() => {
     const trimmed = recordName.trim();
@@ -263,18 +165,6 @@ export default function CreateRecord() {
     }
   }, [alias]);
 
-
-  // const ttlError = useMemo(() => {
-  //   if (alias) return ""; // TTL isn't used for alias records
-  //   const trimmed = ttl.trim();
-  //   if (trimmed === "") return "TTL is required.";
-  //   if (!/^\d+$/.test(trimmed)) return "TTL must be a non-negative integer.";
-  //   if (Number(trimmed) > TTL_MAX) return `TTL cannot exceed ${TTL_MAX} seconds.`;
-  //   return "";
-  // }, [ttl, alias]);
-
-
-
   const recordDisplayName = recordName.trim() ? `${recordName.trim()}.${hostedZoneName}` : hostedZoneName;
   const ttlValue = Number(ttl);
   const valueLines = parseValueEntries(value);
@@ -284,36 +174,6 @@ export default function CreateRecord() {
   );
 
   const MIN_JUSTIFICATION_LENGTH = 20;
-
-
-  // const handleTtlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const raw = e.target.value;
-  //   // allow clearing the field, or any non-negative integer — reject minus signs, decimals, etc.
-  //   if (raw === "" || /^\d+$/.test(raw)) {
-  //     setTtl(raw);
-  //   }
-  // };
-
-  const isFormValid = useMemo(() => {
-    // if (hasActiveRecord) return false;
-
-    const trimmedRecordName = recordName.trim();
-    if (!trimmedRecordName || !isValidRecordName(trimmedRecordName)) return false;
-
-    if (justification.trim().length < MIN_JUSTIFICATION_LENGTH) return false;
-
-    if (alias) {
-      if (!endpointType || !region || !selectedLoadBalancerId) return false;
-    } else {
-      if (valueLines.length === 0) return false;
-      if (findDuplicates(valueLines).length > 0) return false;
-      if (findInvalidIPv4s(valueLines).length > 0) return false;
-      if (ttlError !== "") return false;
-      if (!Number.isInteger(Number(ttl)) || Number(ttl) < 0 || ttl.trim() === "") return false;
-    }
-
-    return true;
-  }, [recordName, justification, alias, endpointType, region, selectedLoadBalancerId, valueLines, ttl]);
 
   const handleSubmit = async () => {
     try {
@@ -351,10 +211,10 @@ export default function CreateRecord() {
         };
 
       const result = await createRoute53Record(payload);
-      alert({ title: "DNS record created", description: "The record was created successfully.", severity: "success" });
       setIsConfirmOpen(false);
       const requestId = result.data?.requestId;
       if (requestId) {
+        alert({ title: "DNS record creation started", description: "The record was created successfully.", severity: "success" });
         const consoleSearch = new URLSearchParams({
           request: requestId,
           service: "route53-service",
@@ -412,8 +272,6 @@ export default function CreateRecord() {
       setTtlError("");
     }
   };
-
-
 
   return (
     <div className="space-y-4">
@@ -686,8 +544,9 @@ export default function CreateRecord() {
             )}
 
             <div className="space-y-2 rounded-lg border border-border bg-background/40 p-6" id="record-justification">
-              <div className="flex items-center gap-2">
-                <label className="font-medium">Justification</label>
+              <div className="flex items-center gap-2 mb-4">
+                <FileText className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Business Justification</h2>
               </div>
 
               <Textarea
@@ -728,7 +587,7 @@ export default function CreateRecord() {
                 setRecordNameError(nameErr);
 
                 if (nameErr) valid = false;
-                  if (recordNameExistsError || recordNameCheckLoading) valid = false;
+                if (recordNameExistsError || recordNameCheckLoading) valid = false;
 
                 const justErr =
                   justification.trim().length < MIN_JUSTIFICATION_LENGTH

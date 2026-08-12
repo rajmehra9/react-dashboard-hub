@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "../ui/input";
-import { fetchVpcListApi, checkVpcNameApi } from "@/services/vpcService";
+import { checkVpcNameApi } from "@/services/vpcService";
 import { Field, RadioRow, SelectCard, Segmented, Collapsible, Divider, cidrSize } from "./VpcFormShared";
 import { PreviewPanel } from "./VpcPreviewPanel";
 
@@ -132,7 +132,9 @@ export function CreateVpc({ onClose }: { onClose?: () => void } = {}) {
   const [existingVpcs, setExistingVpcs] = useState<Array<{ name: string; region: string }>>([]);
   const [nameExistsError, setNameExistsError] = useState("");
   const [nameCheckLoading, setNameCheckLoading] = useState(false);
+  const [hasActiveVpc, setHasActiveVpc] = useState(false);
   const currentUser = useAppStore((s) => s.currentUser);
+  const vpcsFromStore = useAppStore((s) => s.vpcs);
 
   const REGION_CODE_MAP: Record<string, string> = {
     "US East (Ohio)": "us-east-2",
@@ -157,12 +159,13 @@ export function CreateVpc({ onClose }: { onClose?: () => void } = {}) {
 
 useEffect(() => {
   if (!currentUser) return;
-  fetchVpcListApi()
-    .then((list) => {
-      setExistingVpcs(list.map((v: any) => ({ name: String(v.name ?? "").trim(), region: String(v.region ?? "").trim() })));
-    })
-    .catch(() => {});
-}, [currentUser]);
+  const mine = vpcsFromStore.filter((v: any) => Number(v.userId) === Number(currentUser.id));
+  setHasActiveVpc(mine.length > 0);
+  setExistingVpcs(vpcsFromStore.map((v: any) => ({
+    name: String(v.name ?? "").trim(),
+    region: String(v.region ?? "").trim()
+  })));
+}, [currentUser, vpcsFromStore]);
 
 
   useEffect(() => {
@@ -607,7 +610,7 @@ const create = async () => {
                   onClick={() => {
                     setMode("vpc-and-more");
                     setAutoGen(true);
-                    setAutoName((prev) => prev.trim() || "project");
+                    setAutoName("project");
                     setNameError("");
                   }}
                   label="VPC and more"

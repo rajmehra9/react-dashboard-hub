@@ -222,7 +222,9 @@ export function LoadBalancerCreate({ kind }: Props) {
   const [checkingProvisioning, setCheckingProvisioning] = useState(false);
   const [name, setName] = useState("");
   const [justifications, setJustifications] = useState("");
-  const [selectedRegion, setSelectedRegion] = useState("us-east-2");
+  const [selectedRegion, setSelectedRegion] = useState(
+    () => searchParams.get("region") ?? "us-east-2"
+  );
   const [nameError, setNameError] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const [scheme, setScheme] = useState<"internet-facing" | "internal">("internet-facing");
@@ -597,12 +599,6 @@ export function LoadBalancerCreate({ kind }: Props) {
       alert({ title: `"${provisioningLb.name}" is still provisioning`, description: "Wait for it to finish before creating another.", severity: "error" });
       return;
     }
-
-    if (relevantExistingLbs.length > 0) {
-      setExistingLbDialogOpen(true);
-      return;
-    }
-
     const nameValidationError = validateLbName(name);
     if (nameValidationError) {
       setNameErrorMsg(nameValidationError);
@@ -803,6 +799,16 @@ export function LoadBalancerCreate({ kind }: Props) {
   const panel = searchParams.get("panel");
   const showCreateTargetGroup = panel === "create-target-group";
 
+  useEffect(() => {
+    if (showCreateTargetGroup) {
+      window.scrollTo({
+        top: 0,
+        left: 0,
+        behavior: "instant",
+      });
+    }
+  }, [showCreateTargetGroup]);
+
   const handleCreateTargetGroup = () => {
     if (!user?.id) {
       console.log("The User data is missing");
@@ -820,6 +826,7 @@ export function LoadBalancerCreate({ kind }: Props) {
     next.delete("panel");
     next.delete("region");
     next.delete("vpcId");
+    next.delete("step");
     setSearchParams(next);
   };
 
@@ -1474,13 +1481,12 @@ export function LoadBalancerCreate({ kind }: Props) {
                                                 const isUsedElsewhere = selectedElsewhere.has(opt.arn ?? "");
                                                 const isDisabled = opt.is_used || isUsedElsewhere;
                                                 return (
-                                                  <SelectItem key={opt.id} value={opt.arn ?? ""} disabled={isDisabled}>
-                                                    <div className="flex w-full items-center gap-3 pr-2">
-                                                      <span className="truncate flex-1 min-w-0">
-                                                        {opt.name} ({opt.protocol}:{opt.port})
-                                                        {opt.is_used ? " — already in use" : isUsedElsewhere ? " — already selected" : ""}
-                                                      </span>
-                                                      {!opt.is_used && (
+                                                  <SelectItem
+                                                    key={opt.id}
+                                                    value={opt.arn ?? ""}
+                                                    disabled={isDisabled}
+                                                    actions={
+                                                      !opt.is_used && (
                                                         <span
                                                           role="button"
                                                           tabIndex={-1}
@@ -1499,8 +1505,11 @@ export function LoadBalancerCreate({ kind }: Props) {
                                                             <Trash2 size={12} />
                                                           )}
                                                         </span>
-                                                      )}
-                                                    </div>
+                                                      )
+                                                    }
+                                                  >
+                                                    {opt.name} ({opt.protocol}:{opt.port})
+                                                    {opt.is_used ? " — already in use" : isUsedElsewhere ? " — already selected" : ""}
                                                   </SelectItem>
                                                 );
                                               }))}
@@ -1843,31 +1852,31 @@ export function LoadBalancerCreate({ kind }: Props) {
             </div>
           </section>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent 
-            className="sm:max-w-lg max-h-[85vh] flex flex-col"
-            onInteractOutside={(event) => event.preventDefault()}>
-            <div className="p-4 pb-4 border-b">
-              <DialogHeader className="text-center items-center">
-                <DialogTitle className="text-xl font-semibold text-foreground">
-                  Confirm Load Balancer Creation
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground mt-2">
-                  Please review the load balancer settings before creating it.
-                </DialogDescription>
-              </DialogHeader>
-            </div>
-            <div className="space-y-4 mt-4 text-sm overflow-y-auto model-scroll-hide flex-1 px-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Load balancer type</p>
-                  <p className="font-medium text-foreground">{kind}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Scheme</p>
-                  <p className="font-medium text-foreground">{scheme}</p>
-                </div>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent
+              className="sm:max-w-lg max-h-[85vh] flex flex-col"
+              onInteractOutside={(event) => event.preventDefault()}>
+              <div className="p-4 pb-4 border-b">
+                <DialogHeader className="text-center items-center">
+                  <DialogTitle className="text-xl font-semibold text-foreground">
+                    Confirm Load Balancer Creation
+                  </DialogTitle>
+                  <DialogDescription className="text-muted-foreground mt-2">
+                    Please review the load balancer settings before creating it.
+                  </DialogDescription>
+                </DialogHeader>
               </div>
+              <div className="space-y-4 mt-4 text-sm overflow-y-auto model-scroll-hide flex-1 px-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Load balancer type</p>
+                    <p className="font-medium text-foreground">{kind}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Scheme</p>
+                    <p className="font-medium text-foreground">{scheme}</p>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-lg bg-muted/50 border border-border">
@@ -1920,11 +1929,11 @@ export function LoadBalancerCreate({ kind }: Props) {
                   </div>
                 </div>
 
-              <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                <p className="text-xs text-muted-foreground mb-1">Business Justification</p>
-                <p className="font-medium text-foreground">{justifications || "-"}</p>
+                <div className="p-3 rounded-lg bg-muted/50 border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Business Justification</p>
+                  <p className="font-medium text-foreground">{justifications || "-"}</p>
+                </div>
               </div>
-            </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <DialogFooter>
@@ -1949,19 +1958,19 @@ export function LoadBalancerCreate({ kind }: Props) {
 
 
 
-        {/* Footer actions */}
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => navigate("/aws/load-balancers")}>Cancel</Button>
-          <span title={disabledReason ?? undefined}>
-            <Button
-              onClick={submit}
-            >
-              Create Load Balancer
-            </Button>
-          </span>
+          {/* Footer actions */}
+          <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => navigate("/aws/load-balancers")}>Cancel</Button>
+            <span title={disabledReason ?? undefined}>
+              <Button
+                onClick={submit}
+              >
+                Create Load Balancer
+              </Button>
+            </span>
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

@@ -289,7 +289,8 @@ function RequestRow({ request, currentUser }: { request: Request; currentUser: a
              {serviceLabel}
           </p>
           <p className="text-xs text-muted-foreground">
-            {request.user_name} • {request.region}
+            {request.user_name}
+            {request.region?.trim() && <> • {request.region}</>}
           </p>
         </div>
       </div>
@@ -307,9 +308,7 @@ function RequestRow({ request, currentUser }: { request: Request; currentUser: a
         <span className="text-xs text-muted-foreground">
           {formatDistanceToNow(
             parseBackendTimestamp(
-              (request.status === "destroyed" || request.status === "destroying") && request.updated_at
-                ? request.updated_at
-                : request.created_at
+              request.updated_at ?? request.created_at
             ),
             { addSuffix: true }
           )}

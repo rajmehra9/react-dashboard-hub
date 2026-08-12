@@ -37,7 +37,7 @@ export function BucketsTable({
   const currentUser = useAppStore((s) => s.currentUser);
   const refreshCurrentUser = useAppStore((s) => s.refreshCurrentUser);
   useEffect(() => {
-    refreshCurrentUser();
+   if (!currentUser) refreshCurrentUser();
   }, []);
   const MAX_BUCKETS = currentUser?.maxBuckets ?? 1;
   const userBucketCount = buckets.filter(

@@ -161,7 +161,7 @@ export function RdsList() {
   );
   useEffect(() => {
     refreshCurrentUser();
-  }, [refreshCurrentUser]);
+  }, []);
   const MAX_RDS = currentUser?.maxRdsClusters ?? 0;
   const userClusterCount = apiClusters.filter(
     (cluster: any) =>

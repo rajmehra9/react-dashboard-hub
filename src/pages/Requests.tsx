@@ -461,6 +461,18 @@ export default function VMRequests() {
     try {
       if (service === "vpc-service") {
         await deleteVpcRequestApi(requestId);
+        setRequests((prev) =>
+          sortRequestsByLatestActivity(
+            prev.map((r) =>
+              r.request_id === requestId
+                ? { ...r, status: "destroying", logs_cleared_at: null, last_operation: "destroy" }
+                : r,
+            )
+          ),
+        );
+        watchRequest(requestId, service);
+        setActiveRequest(requestId, service);
+        navigate("/console");
       }
       else if (service === "lb-service") {
         await deleteLbRequestApi(requestId);          // ← add this
@@ -550,7 +562,9 @@ export default function VMRequests() {
               )
             ),
           );
-          watchRequest(requestId,service);
+          watchRequest(requestId, service);
+          setActiveRequest(requestId, service);
+          navigate("/console");
         }
       }
       fetchRequests(page);

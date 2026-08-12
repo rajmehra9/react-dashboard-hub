@@ -42,7 +42,7 @@ type Props = {
   onNext: () => void;
 };
 
-export function RegisterTargetsStep({ region, vpcId, defaultPort,  pendingTargets, onPendingTargetsChange, onCancel, onPrevious, onNext }: Props) {
+export function RegisterTargetsStep({ region, vpcId, defaultPort, pendingTargets, onPendingTargetsChange, onCancel, onPrevious, onNext }: Props) {
   const { alert } = useDialog();
   const [instanceFilter, setInstanceFilter] = useState("");
   const [instancePage, setInstancePage] = useState(1);
@@ -93,11 +93,20 @@ export function RegisterTargetsStep({ region, vpcId, defaultPort,  pendingTarget
     loadInstances();
   }, [region, vpcId]);
 
+  // Instance IDs that are already included as pending targets — these should
+  // disappear from the "Available instances" table until removed from pending.
+  const pendingInstanceIds = useMemo(
+    () => new Set(pendingTargets.map((t) => t.instanceId)),
+    [pendingTargets]
+  );
 
   const filteredInstances = useMemo(() => {
     const q = instanceFilter.trim().toLowerCase();
-    return instances.filter((i) => !q || Object.values(i).some((v) => String(v).toLowerCase().includes(q)));
-  }, [instances, instanceFilter]);
+    return instances.filter((i) => {
+      if (pendingInstanceIds.has(i.instanceId)) return false;
+      return !q || Object.values(i).some((v) => String(v).toLowerCase().includes(q));
+    });
+  }, [instances, instanceFilter, pendingInstanceIds]);
 
   const instancesTotalPages = Math.max(1, Math.ceil(filteredInstances.length / INSTANCES_PAGE_SIZE));
   const currentInstancePage = Math.min(instancePage, instancesTotalPages);
@@ -155,10 +164,8 @@ export function RegisterTargetsStep({ region, vpcId, defaultPort,  pendingTarget
   };
 
   const handleNext = () => {
-    if (selectedInstances.size > 0) {
-      const ok = includeAsPending();
-      if (!ok) return; // stop if port was invalid — don't silently drop the selection
-    }
+    // Do not implicitly include selected instances when advancing.
+    // Users must click "Include as pending below" to add instances.
     onNext();
   };
 
@@ -337,8 +344,8 @@ export function RegisterTargetsStep({ region, vpcId, defaultPort,  pendingTarget
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
-            <Switch checked={showOnlyPending} onCheckedChange={setShowOnlyPending} />
-            Show only pending
+            {/* <Switch checked={showOnlyPending} onCheckedChange={setShowOnlyPending} />
+            Show only pending */}
           </label>
         </div>
 

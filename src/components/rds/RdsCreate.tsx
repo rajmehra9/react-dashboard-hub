@@ -75,7 +75,7 @@ export function RdsCreate() {
       } finally {
         setIdentifierCheckLoading(false);
       }
-    }, 500);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [identifier, selectedRegion]);
   const isJustificationValid = justifications.trim().length >= 20;
@@ -91,9 +91,23 @@ export function RdsCreate() {
     return "";
   };
 
+  const clusterIdentifierRegex = /^[a-z][a-z0-9-]*$/;
+
   const errors = {
-    identifier: !identifier.trim() ? "The DB cluster identifier field is required." : "",
-    username: !username.trim() ? "The Database master username field is required." : "",
+    identifier: !identifier.trim()
+      ? "The DB cluster identifier field is required."
+      : identifier.length > 63
+        ? "Cluster identifier must be 63 characters or less."
+        : !clusterIdentifierRegex.test(identifier)
+          ? "Must start with a letter, contain only lowercase letters, numbers, hyphens"
+          : "",
+    username: !username.trim()
+      ? "The Database master username field is required."
+      : username.length > 16
+        ? "Master username must be 16 characters or less."
+        : !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(username)
+          ? "Must start with a letter, contain only letters, numbers, underscores"
+          : "",
     minCapacity: !minCapacity.trim()
       ? "The minimum capacity (ACUs) field is required."
       : parseFloat(minCapacity) < 0 || parseFloat(minCapacity) > 256
@@ -171,7 +185,7 @@ export function RdsCreate() {
       pauseAfter: { val: pauseAfter, set: setPauseAfter, type: "number", unit: "seconds" },
     };
     const { val, set, type = "text", unit } = map[row.field];
-    const err = touched ? errors[row.field as keyof typeof errors] : "";
+    const err = (touched || editingField === row.field) ? errors[row.field as keyof typeof errors] : "";
     const displayValue = (row.field === "minCapacity" || row.field === "maxCapacity") ? acu(val) : row.field === "pauseAfter" ? `${val} seconds` : val;
     const isEditing = editingField === row.field;
 
@@ -211,7 +225,7 @@ export function RdsCreate() {
             type={type}
             value={val}
             onChange={(e) => set(e.target.value)}
-            onBlur={() => setEditingField(null)}
+            onBlur={() => { setTouched(true); setEditingField(null); }}
             className={`h-7 text-sm bg-card/50 w-[150px] ${err ? "border-destructive focus-visible:ring-destructive" : "border-border/50"
               }`}
           />

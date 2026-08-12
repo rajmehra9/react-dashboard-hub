@@ -452,8 +452,10 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
     let projErr = "";
     if (!projectIdentifier.trim()) {
       projErr = "Project Identifier is required";
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(projectIdentifier)) {
+      projErr = "projectIdentifier can only contain letters, numbers, hyphens, and underscores";
     } else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(projectIdentifier)) {
-      projErr = "Only letters, numbers, and hyphens (-), max 32 characters";
+      projErr = "Only letters, numbers and hyphens(-), max 32 characters for category 5";
     }
     setProjectIdentifierError(projErr);
 
@@ -604,6 +606,19 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
   }, [visibleCategories, category]);
 
   useEffect(() => {
+    if (!projectIdentifier) return;
+    if (!projectIdentifier.trim()) {
+      setProjectIdentifierError("Project Identifier is required");
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(projectIdentifier)) {
+      setProjectIdentifierError("projectIdentifier can only contain letters, numbers, hyphens, and underscores");
+    } else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(projectIdentifier)) {
+      setProjectIdentifierError("Only letters, numbers and hyphens(-), max 32 characters for category 5");
+    } else {
+      setProjectIdentifierError("");
+    }
+  }, [category]);
+
+  useEffect(() => {
     if (category === 1) {
       setSplunkVersion("");
     } else {
@@ -698,18 +713,22 @@ export function VMRequestForm({ onSubmit, isSubmitting = false }: Props) {
               placeholder="e.g., splunk-prod, analytics-lab"
               value={projectIdentifier}
               onChange={(e) => {
-                setProjectIdentifier(e.target.value);
-                if (submitted) {
-                  const v = e.target.value;
-                  if (!v.trim()) setProjectIdentifierError("Project Identifier is required");
-                  else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(v)) setProjectIdentifierError("Only letters, numbers, and hyphens (-), max 32 characters");
-                  else setProjectIdentifierError("");
+                const v = e.target.value;
+                setProjectIdentifier(v);
+                if (!v.trim()) {
+                  setProjectIdentifierError("Project Identifier is required");
+                } else if (!/^[a-zA-Z0-9_-]+$/.test(v)) {
+                  setProjectIdentifierError("projectIdentifier can only contain letters, numbers, hyphens, and underscores");
+                } else if (category === 5 && !/^[a-z0-9-]{1,32}$/i.test(v)) {
+                  setProjectIdentifierError("Only letters, numbers, and hyphens(-), max 32 characters for category 5");
+                } else {
+                  setProjectIdentifierError("");
                 }
               }}
-              className={`bg-muted/50 ${submitted && projectIdentifierError ? "border-destructive" : ""}`}
+              className={`bg-muted/50 ${projectIdentifierError ? "border-destructive" : ""}`}
               spellCheck={false}
             />
-            {submitted && projectIdentifierError && (
+            {projectIdentifierError && (
               <p className="text-xs text-destructive">{projectIdentifierError}</p>
             )}
             <p className="text-xs text-muted-foreground">

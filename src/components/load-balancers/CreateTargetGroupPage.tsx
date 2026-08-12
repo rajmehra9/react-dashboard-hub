@@ -143,10 +143,12 @@ export function CreateTargetGroupPage({ isAlb, vpcList, defaultVpcId, region, us
 
 
   const activeVpc = vpcList.find((v) => v.id === (defaultVpcId ?? vpcList[0]?.id)) ?? REGION_VPC[region] ?? REGION_VPC["us-east-2"];
-  const [vpcId, setVpcId] = useState(defaultVpcId || activeVpc.id);
+  // const [vpcId, setVpcId] = useState(defaultVpcId || activeVpc.id);
 
   const { alert } = useDialog();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [vpcId, setVpcId] = useState(defaultVpcId || activeVpc.id);
   const [targetType, setTargetType] = useState<TargetType>("instances");
   const [name, setName] = useState("");
   const [nameTouched, setNameTouched] = useState(false);
@@ -177,6 +179,11 @@ export function CreateTargetGroupPage({ isAlb, vpcList, defaultVpcId, region, us
       setPort(DEFAULT_PORT_BY_PROTOCOL[protocol]);
     }
   }, [protocol]);
+  // After the existing vpcId useState, add:
+  useEffect(() => {
+    if (defaultVpcId) setVpcId(defaultVpcId);
+  }, [defaultVpcId]);
+
 
   const [port, setPort] = useState("80");
   const [ipAddressType, setIpAddressType] = useState<"ipv4" | "ipv6">("ipv4");

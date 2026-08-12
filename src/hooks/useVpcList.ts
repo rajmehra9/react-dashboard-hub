@@ -25,18 +25,23 @@ export function useVpcList() {
   const [loading, setLoading] = useState(false);
   const { alert } = useDialog();
 
-  const loadVpcs = useCallback(async () => {
-    setLoading(true);
+  const loadVpcs = useCallback(async (showLoader = true) => {
+    if (showLoader) {
+      setLoading(true);
+    }
+
     try {
       const list = await fetchVpcListApi();
       setVpcs(list);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : "Failed to load VPCs";
-        alert({ title: msg, severity: "error" });
+      alert({ title: msg, severity: "error" });
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
-  }, [setVpcs]);
+  }, [setVpcs, alert]);
 
   useEffect(() => {
     loadVpcs();
@@ -102,9 +107,6 @@ export function useVpcList() {
         const details = await fetchVpcDetailsApi(pending.requestId);
         const status = String(details?.status ?? "").toUpperCase();
 
-        // Pending localStorage should only represent an in-flight create that
-        // hasn't shown up in the list yet. Clear it once the request reaches
-        // any terminal or non-create state so quota doesn't get stuck.
         if (
           !cancelled &&
           [
@@ -120,8 +122,6 @@ export function useVpcList() {
           void loadVpcs();
         }
       } catch (err) {
-        // If the request no longer exists, this pending marker is stale and
-        // should not continue blocking VPC creation.
         if (!cancelled && err instanceof ApiError && err.status === 404) {
           clearPendingVpc(currentUser.id);
           setPendingCount(0);
@@ -133,14 +133,14 @@ export function useVpcList() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.id, vpcs, loadVpcs]);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser?.id || pendingCount === 0) return;
 
     const interval = window.setInterval(() => {
-      void loadVpcs();
-    }, 10000);
+      void loadVpcs(false);
+    }, 15_000);
 
     return () => window.clearInterval(interval);
   }, [currentUser?.id, pendingCount, loadVpcs]);

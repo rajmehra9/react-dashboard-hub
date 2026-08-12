@@ -76,6 +76,7 @@ export function VpcList() {
   ).length;
 
   const totalVpcs = userVpcCount + pendingCount;
+  const activeVpcs = allVpcs.filter((v: any) => v.status === "available").length;
   const hasReachedQuota = totalVpcs >= MAX_VPCS;
 
   const remainingQuota = Math.max(0, MAX_VPCS - totalVpcs);
@@ -143,7 +144,7 @@ export function VpcList() {
   return (
     <div className="space-y-4 p-6">
       <div className="flex flex-wrap gap-3">
-        <StatCard icon={<Network className="h-4 w-4 text-primary" />} iconBg="bg-primary/10" value={totalVpcs} label="Total VPCs" />
+        <StatCard icon={<Network className="h-4 w-4 text-primary" />} iconBg="bg-primary/10" value={activeVpcs} label="Total VPCs" />
         <StatCard icon={<Layers className="h-4 w-4 text-cyan-400" />} iconBg="bg-cyan-500/10" value={activeSubnets} label="Active Subnets" />
         <StatCard icon={<Globe className="h-4 w-4 text-emerald-400" />} iconBg="bg-emerald-500/10" value={withNat} label="With NAT" />
         <div className="flex-auto w-full sm:w-auto max-w-full sm:max-w-[400px] min-w-[220px] flex items-center gap-3 rounded-lg border border-border/50 bg-card/50 backdrop-blur px-4 py-3 hover:border-primary/30 transition-colors">
