@@ -1,19 +1,6 @@
-import { Server, Activity, Users, Clock } from "lucide-react";
-import { StatCard } from "@/components/dashboard/StatCard";
-
-interface Props {
-  totalResources: number;
-  activeResources: number;
-  provisioningCount: number;
-  avgProvisionTime: string;
-  trend?: {
-    value: number;
-    display: string;
-    tooltip: string;
-    positive: boolean;
-    showTooltip?: boolean;
-  };
-}
+import { Activity, Clock, Server, Users } from "lucide-react";
+import { StatCard } from "./StatCard";
+import type { DashboardStatsProps } from "./dashboardTypes";
 
 export function DashboardStats({
   totalResources,
@@ -21,10 +8,10 @@ export function DashboardStats({
   provisioningCount,
   avgProvisionTime,
   trend,
-}: Props) {
+}: DashboardStatsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-     <StatCard
+      <StatCard
         title="Active Resources"
         value={totalResources}
         subtitle="Across all services & regions"
@@ -32,25 +19,28 @@ export function DashboardStats({
         variant="primary"
         trend={trend}
       />
-       <StatCard
+
+      <StatCard
         title="Running Operations"
         value={provisioningCount}
         subtitle="Automation in progress"
-        variant="warning"
         icon={Activity}
+        variant="warning"
       />
+
       <StatCard
         title="Active Users"
         value={activeResources}
         subtitle="With active services"
-        variant="success"
         icon={Users}
-      />     
+        variant="success"
+      />
+
       <StatCard
         title="Avg. Provision Time"
         value={avgProvisionTime}
         subtitle="Last 7 days"
-        icon={Activity}   
+        icon={Clock}
       />
     </div>
   );
