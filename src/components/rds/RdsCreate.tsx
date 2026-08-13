@@ -6,7 +6,6 @@ import { Header } from "@/components/layout/Header";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { toast } from "sonner";
 import { useProvisionRds } from "@/hooks/useRds";
 import { checkRdsIdentifier } from "@/services/rdsService";
 import { useAppStore } from "@/store/appStore";
@@ -78,7 +77,6 @@ export function RdsCreate() {
     }, 1200);
     return () => clearTimeout(timer);
   }, [identifier, selectedRegion]);
-  const isJustificationValid = justifications.trim().length >= 20;
 
 
 
