@@ -5,6 +5,7 @@
 
 import { apiClient, env } from "@/lib/api";
 import type { ApiResponse } from "@/types/api";
+import type { RecentRequest } from "./dashboardTypes";
 
 export interface AWSSummary {
   running: number;
@@ -174,4 +175,15 @@ export async function fetchServiceQuotasApi(): Promise<ServiceQuota[]> {
     throw new Error("Service quotas data not found");
   }
   return response.data;
+}
+// ── Fetch Recent Requests (dashboard widget) ─────────────────────────────────
+export async function fetchRecentRequestsApi(): Promise<RecentRequest[]> {
+  const response = await apiClient.get<
+    ApiResponse<RecentRequest[] | { data: RecentRequest[] }>
+  >(env.vmRequest, "/api/requests?dashboard=true");
+
+  const payload = response.data;
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  return [];
 }
