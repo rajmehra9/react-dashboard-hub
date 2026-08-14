@@ -43,3 +43,12 @@ export type RdsRow = {
 export type RdsDetailTab = "connectivity" | "configuration";
 
 export type RdsConnectUsing = "code" | "endpoints";
+/** Client platforms shown in the psql connection instructions. */
+export type PsqlPlatform =
+  | "macos"
+  | "amazon-linux"
+  | "ubuntu"
+  | "rhel"
+  | "suse"
+  | "debian"
+  | "windows";
