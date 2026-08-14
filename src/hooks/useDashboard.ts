@@ -13,6 +13,7 @@ import {
   fetchDashboardOverviewApi,
   fetchRoleCountsApi,
   fetchServiceQuotasApi,
+  fetchRecentRequestsApi,
 } from '@/components/dashboard/dashboardApi';
 import { fetchVMRequestsApi } from '@/components/requests/vmRequestsApi';
 
@@ -26,6 +27,7 @@ const QUERY_KEYS = {
   roleCounts: ['roleCounts'] as const,
   recentActivity: ['dashboardRecentActivity'] as const,
   serviceQuotas: ['serviceQuotas'] as const,
+  requests: ['requests'] as const,
 };
 
 // ── Fetch AWS Counts ─────────────────────────────────────────────────────────
@@ -112,6 +114,17 @@ export function useDashboardRecentActivity() {
     staleTime: 1000 * 15,
     refetchInterval: 15_000,
     gcTime: 1000 * 60 * 5,
+  });
+}
+
+// ── Fetch Service Quotas ─────────────────────────────────────────────────────
+export function useRecentRequests() {
+  return useQuery({
+    queryKey: QUERY_KEYS.requests,
+    queryFn: fetchRecentRequestsApi,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    enabled: !!localStorage.getItem('token'),
   });
 }
 
